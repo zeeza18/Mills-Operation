@@ -233,3 +233,6 @@ job_description.md
 # not worth bloating repo history with a regenerable 25MB CSV.
 data/synthetic/
 
+# Trained model artifact — reproducible via `python -m app.evaluate`.
+app/model.joblib
+

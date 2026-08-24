@@ -65,6 +65,7 @@ def simulate_stand_day(rng, stand_id, day_start, will_fail):
     }
 
     failure_ts = None
+    degrade_start_ts = None
     if will_fail:
         # cap the degrade window so it always fits inside a single simulated day
         max_hours = min(MAX_DEGRADE_HOURS, (n_points - 60) / 60)
@@ -73,6 +74,7 @@ def simulate_stand_day(rng, stand_id, day_start, will_fail):
         failure_minute = rng.integers(degrade_minutes, n_points)
         failure_ts = timestamps[failure_minute]
         degrade_start_minute = max(0, failure_minute - degrade_minutes)
+        degrade_start_ts = timestamps[degrade_start_minute]
 
         span = failure_minute - degrade_start_minute
         # non-linear ramp: slow at first, accelerates near failure (typical bearing wear curve)
@@ -89,7 +91,7 @@ def simulate_stand_day(rng, stand_id, day_start, will_fail):
             signals[name] += rng.normal(0, BASELINE[name][1] * progress * 1.5, n_points)
 
     df = pd.DataFrame({"timestamp": timestamps, "stand_id": stand_id, **signals})
-    return df, failure_ts
+    return df, failure_ts, degrade_start_ts
 
 
 def main():
@@ -105,10 +107,14 @@ def main():
         for day in range(N_DAYS):
             day_start = pd.Timestamp("2026-01-01") + pd.Timedelta(days=day)
             will_fail = rng.random() < FAILURE_RATE
-            df, failure_ts = simulate_stand_day(rng, stand_id, day_start, will_fail)
+            df, failure_ts, degrade_start_ts = simulate_stand_day(rng, stand_id, day_start, will_fail)
             all_readings.append(df)
             if failure_ts is not None:
-                failure_events.append({"stand_id": stand_id, "failure_timestamp": failure_ts})
+                failure_events.append({
+                    "stand_id": stand_id,
+                    "failure_timestamp": failure_ts,
+                    "degrade_start_timestamp": degrade_start_ts,
+                })
 
     readings = pd.concat(all_readings, ignore_index=True)
     readings = readings.round(3)
