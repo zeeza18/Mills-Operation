@@ -8,10 +8,11 @@ No day-by-day pacing — work through this in whatever order/speed makes sense. 
 
 ## 0. Repo & Environment Setup
 
-- [ ] Repo synced to `https://github.com/zeeza18/Mills-Operation.git`
-- [ ] Folder structure created: `/app` (or `/src`), `/tests`, `/docs`, `/data`
-- [ ] `README.md` at repo root (Deliverable 2 requirement — must explain how to run it)
-- [ ] `.gitignore` set up (venv, node_modules, data caches, `.env`)
+- [x] Repo synced to `https://github.com/zeeza18/Mills-Operation.git`
+- [x] Folder structure created: `/app`, `/tests`, `/docs`, `/data`
+- [x] `README.md` at repo root (Deliverable 2 requirement — must explain how to run it)
+- [x] `.gitignore` set up (Node/Playwright artifacts, and confidential prompt files excluded per assessment.md's own confidentiality clause — repo is public)
+- [x] CI/CD target decided: GitHub Actions (documented as the accessible stand-in for Azure DevOps in the stack justification)
 - [ ] Confirm exact due date once sent, note it here: `___________`
 
 ## 1. Problem Framing (Deliverable 3 groundwork — Problem Framing = 20% of score)
