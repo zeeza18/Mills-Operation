@@ -62,10 +62,10 @@ No day-by-day pacing — work through this in whatever order/speed makes sense. 
 
 ## 8. Documentation Deliverables (write once the build is stable)
 
-- [ ] **Deliverable 2** — README: how to run it, what it does, limitations
+- [x] **Deliverable 2** — README: how to run it, what it does, limitations — `README.md`
 - [x] **Deliverable 3** — Architecture & design doc (2-4 pages): diagram, decisions, rejected alternatives, break-at-scale — `docs/architecture.md`
 - [ ] **Deliverable 4** — Stack justification (1 page): why this stack vs. building on C3.ai / Palantir Foundry; mention the Playwright/CI choice here too
-- [ ] **Deliverable 5** — AI Partnership Log (1-2 pages, the most important one): tools used + purpose, 3-5 specific overrides + reasoning, 1-2 confidently-wrong AI moments, what you'd never let AI decide alone, where it was 10x vs. where it slowed you down
+- [x] **Deliverable 5** — AI Partnership Log (1-2 pages, the most important one): tools used + purpose, 3-5 specific overrides + reasoning, 1-2 confidently-wrong AI moments, what you'd never let AI decide alone, where it was 10x vs. where it slowed you down — `docs/ai-partnership-log.md`
 - [x] **Deliverable 6** — Data strategy (1 page): what data is needed, how simulated/sourced, what you'd ask Nucor's data team for — `docs/data-strategy.md`
 - [ ] **Deliverable 7** — Security & risk assessment (1-2 pages): prompt injection, data leakage, hallucination in decision support, access control, audit trail, model deprecation — spot risks, don't need to solve all
 

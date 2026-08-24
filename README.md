@@ -61,6 +61,15 @@ Playwright starts the dashboard itself (see `playwright.config.js`), so just mak
 above have been run first so `data/synthetic/test_scored.csv` exists. Runs automatically on every
 push/PR via `.github/workflows/ci.yml`.
 
+## Known limitations
+
+- One global anomaly threshold across all 6 stands, not per-stand calibration
+- Batch scoring, not a live streaming pipeline
+- Trained and evaluated entirely on synthetic data — see `docs/data-strategy.md` for what's unverified
+- Targets one failure mode (roll stand bearing degradation) by design, not general downtime prediction
+
+Full breakdown, including what this would take to fix at Nucor scale, in `docs/architecture.md`.
+
 ## Docs
 
 - `docs/architecture.md` — system design, key decisions, what breaks at scale
