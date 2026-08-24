@@ -43,9 +43,9 @@ No day-by-day pacing — work through this in whatever order/speed makes sense. 
 
 ## 5. Core Build — Web Dashboard
 
-- [ ] Live-style signal view (charts) + anomaly flags + timeline, for the shift supervisor persona
-- [ ] Clean enough to demo on camera — polish is explicitly NOT scored, but it must be usable in the walkthrough video
-- [ ] Deployed or at least reliably runnable locally with one command (README must make this trivial)
+- [x] Live-style signal view (charts) + anomaly flags + timeline, for the shift supervisor persona — `app/dashboard.py` (Streamlit + Plotly)
+- [x] Clean enough to demo on camera — fleet overview + per-stand detail view, verified rendering in an actual browser (not just curl), fixed a real bug found while checking (ground-truth failure list leaked events outside the visible chart window)
+- [x] Runnable locally with one command — `streamlit run app/dashboard.py`, documented in README
 
 ## 6. AI Copilot / Agentic Layer
 

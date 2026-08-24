@@ -89,6 +89,7 @@ def main():
     print("Scoring held-out test window...")
     test = test.copy()
     test["anomaly_score"] = detector.score(trained, test)
+    test["is_alert"] = detector.find_alerts(test, trained.alert_threshold)
 
     print("\n--- Evaluation ---")
     lead_times = evaluate_lead_times(test, events, trained.alert_threshold)
@@ -108,8 +109,19 @@ def main():
 
     test.to_csv(f"{DATA_DIR}/test_scored.csv", index=False)
     lead_times.to_csv(f"{DATA_DIR}/evaluation_lead_times.csv", index=False)
+
+    meta = {
+        "alert_threshold": trained.alert_threshold,
+        "alert_threshold_percentile": detector.ALERT_THRESHOLD_PERCENTILE,
+        "false_positive_rate": fp_rate,
+        "failures_in_test_window": n_events_in_window,
+        "failures_detected": n_detected,
+    }
+    pd.Series(meta).to_json(f"{DATA_DIR}/model_meta.json", indent=2)
+
     print(f"\nSaved scored test set -> {DATA_DIR}/test_scored.csv")
     print(f"Saved lead-time evaluation -> {DATA_DIR}/evaluation_lead_times.csv")
+    print(f"Saved model metadata -> {DATA_DIR}/model_meta.json")
 
 
 if __name__ == "__main__":

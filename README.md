@@ -6,7 +6,7 @@ Built as part of a take-home assignment; doubling as a demonstration project for
 
 ## Status
 
-Early scaffold — structure in place, build in progress. See `todo.md` for the full task checklist.
+Data pipeline, anomaly detection engine, and dashboard are working end to end. AI copilot layer and Playwright tests are next. See `todo.md` for the full task checklist.
 
 ## Structure
 
@@ -19,7 +19,22 @@ docs/    — architecture, stack justification, AI partnership log, data strateg
 
 ## Running it
 
-_To be filled in once the app scaffold exists — will document exact setup/run commands here._
+```bash
+pip install -r requirements.txt
+
+# 1. Generate the synthetic sensor dataset (deterministic, ~389K rows, takes a few seconds)
+python data/generate_synthetic_data.py
+
+# 2. Train the anomaly detector and score the held-out test window
+python -m app.evaluate
+
+# 3. Launch the dashboard
+streamlit run app/dashboard.py
+```
+
+Step 2 prints detection results (failures caught, lead time, false-alarm rate) and writes
+`data/synthetic/test_scored.csv` + `model_meta.json`, which the dashboard reads. Run 1 and 2 once;
+re-run 2 any time you change `app/features.py` or `app/detector.py`.
 
 ## Docs
 
