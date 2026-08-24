@@ -1,0 +1,17 @@
+{
+  "name": "mills-operation",
+  "version": "1.0.0",
+  "description": "AI-powered reliability copilot for mill operations",
+  "private": true,
+  "scripts": {
+    "test": "playwright test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zeeza18/Mills-Operation.git"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
+}

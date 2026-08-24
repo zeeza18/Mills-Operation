@@ -11,11 +11,20 @@ Run: streamlit run app/dashboard.py
 """
 
 import json
+import sys
 from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+
+# `streamlit run app/dashboard.py` (the documented, plain way to launch this) executes the
+# script directly rather than via `python -m`, so the repo root never lands on sys.path and
+# `from app.copilot import ...` fails with ModuleNotFoundError. This was masked in manual
+# testing because `python -m streamlit run ...` (module invocation) DOES add the repo root
+# automatically -- the Playwright suite caught it because it launches the server the way
+# the README actually tells people to. See docs/ai-partnership-log.md.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.copilot import build_context, explain_anomaly
 

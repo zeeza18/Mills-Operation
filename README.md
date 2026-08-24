@@ -6,7 +6,7 @@ Built as part of a take-home assignment; doubling as a demonstration project for
 
 ## Status
 
-Data pipeline, anomaly detection engine, dashboard, and AI copilot layer are all working end to end. Playwright tests are next. See `todo.md` for the full task checklist.
+Data pipeline, anomaly detection engine, dashboard, AI copilot layer, and Playwright test suite (wired into GitHub Actions) are all working end to end. See `todo.md` for the full task checklist.
 
 ## Structure
 
@@ -48,6 +48,18 @@ cp .env.example .env   # then put a real ANTHROPIC_API_KEY in .env
 Without a key, the button still works — it falls back to a deterministic rule-based explanation
 (same underlying signal-deviation data, just without the natural-language writeup) so the dashboard
 never breaks because of a missing key or a network issue.
+
+## Testing
+
+```bash
+npm install
+npx playwright install --with-deps chromium
+npx playwright test
+```
+
+Playwright starts the dashboard itself (see `playwright.config.js`), so just make sure steps 1-2
+above have been run first so `data/synthetic/test_scored.csv` exists. Runs automatically on every
+push/PR via `.github/workflows/ci.yml`.
 
 ## Docs
 

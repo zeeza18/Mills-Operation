@@ -1,0 +1,58 @@
+name: CI
+
+# Standing in for what would be an Azure DevOps pipeline at Nucor (see
+# docs/stack-justification.md) -- same idea, accessible tooling: generate
+# the dataset, train + evaluate the detector, then run the Playwright
+# suite against a live instance of the dashboard, gating on all of it.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate synthetic dataset
+        run: python data/generate_synthetic_data.py
+
+      - name: Train detector and evaluate
+        run: python -m app.evaluate
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright suite
+        env:
+          # Optional: add ANTHROPIC_API_KEY as a repo secret to exercise the live
+          # copilot call in CI. Without it, the copilot test still passes against
+          # the deterministic offline fallback -- see app/copilot.py.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CI: true
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

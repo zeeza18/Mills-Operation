@@ -55,10 +55,10 @@ No day-by-day pacing — work through this in whatever order/speed makes sense. 
 
 ## 7. Testing Automation Layer — Playwright (JD-alignment bonus, not required by assessment.md)
 
-- [ ] Write a Playwright test suite covering the dashboard's core flows (load, anomaly renders, copilot responds)
-- [ ] Bonus: use AI to *generate* a first draft of the Playwright tests, then document what you kept/changed — directly demonstrates the JD's "AI-powered testing automation agents that autonomously generate, execute, and evaluate test cases"
-- [ ] Wire tests into a CI workflow (GitHub Actions is the accessible equivalent of Azure DevOps here — say so explicitly in the stack justification doc so the Azure DevOps/CI-CD JD line is clearly addressed)
-- [ ] Short note in the architecture doc: "In production this test suite would run in Azure DevOps CI/CD, gating deploys" — ties directly to JD responsibility #1
+- [x] Playwright test suite — `tests/dashboard.spec.js`: loads + fleet status, real detection numbers (not placeholders), per-stand charts render, copilot button produces a grounded response
+- [x] AI-generated first draft, then actually run and fixed against real failures — not a constructed story: found and fixed a genuine `ModuleNotFoundError` in `app/dashboard.py` (bare `streamlit run` doesn't add the repo root to sys.path; my own manual browser testing had masked this by using `python -m streamlit run` instead), plus bumped a too-tight default assertion timeout once real Streamlit cold-start latency showed up. Directly demonstrates the JD's "AI-powered testing automation agents that autonomously generate, execute, and evaluate test cases."
+- [x] Wired into GitHub Actions — `.github/workflows/ci.yml`: generates data, trains+evaluates the model, runs the full Playwright suite on every push/PR. Documented as the accessible stand-in for Azure DevOps in `docs/stack-justification.md` (write that doc next).
+- [x] Note in the architecture doc about the CI/testing layer and what it caught — `docs/architecture.md`
 
 ## 8. Documentation Deliverables (write once the build is stable)
 
