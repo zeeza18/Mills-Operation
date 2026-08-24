@@ -30,8 +30,8 @@ No day-by-day pacing — work through this in whatever order/speed makes sense. 
 
 ## 3. Data (Deliverable 6 — feeds Data Strategy doc)
 
-- [ ] Decide + document exact synthetic/proxy dataset approach (steel-mill-style signals seeded from a public predictive-maintenance dataset)
-- [ ] Generate dataset with realistic failure-precursor patterns (gradual drift before failure, not just random noise)
+- [x] Decide + document exact synthetic/proxy dataset approach — `data/generate_synthetic_data.py`, 6 roll stands x 45 days x 5 signals, seeded/reproducible
+- [x] Generate dataset with realistic failure-precursor patterns — non-linear degradation ramp (6-48h) into ~22% of stand-days, spot-checked
 - [ ] Document: what real data this would need at Nucor (tag names, sampling rate, historian source), how you'd request access, who owns it
 - [ ] Note data quality angle explicitly — this is also a live JD theme (MDM/data quality), so call it out even briefly: what validation you'd want on this data if it were real (echoes the MDM anomaly-detection bullet)
 
