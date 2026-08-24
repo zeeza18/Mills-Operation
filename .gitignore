@@ -216,3 +216,16 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Node / Playwright
+node_modules/
+playwright-report/
+test-results/
+playwright/.cache/
+
+# Confidential assignment materials — see assessment.md's own confidentiality clause.
+# Keep the take-home prompt and JD local only; never push to this public repo.
+assessment.md
+job_description.md
+*.docx
+
