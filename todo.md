@@ -37,9 +37,9 @@ No day-by-day pacing — work through this in whatever order/speed makes sense. 
 
 ## 4. Core Build — Anomaly Detection Engine
 
-- [ ] Feature/signal processing pipeline (rolling stats, trend detection, etc.)
-- [ ] Anomaly detection logic (start simple — thresholds/isolation forest — before anything fancier; document why)
-- [ ] Model evaluation: false positive vs. missed-event tradeoff explicitly measured and discussed (this is a "Judgment with AI" and "Pragmatism" signal, not just an ML metric)
+- [x] Feature/signal processing pipeline — `app/features.py`: rolling 60-min mean/std + 15-min rate-of-change per signal
+- [x] Anomaly detection logic — `app/detector.py`: IsolationForest trained only on normal windows, time-based train/test split (`app/labels.py`)
+- [x] Model evaluation — `app/evaluate.py`: 11/11 held-out test failures detected, median 91min lead time (up to 17h), 1.06% false-alarm rate. First threshold attempt (99.5th pct) caught 0/11 — real tuning story, captured for the AI partnership log.
 
 ## 5. Core Build — Web Dashboard
 
