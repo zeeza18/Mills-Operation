@@ -17,16 +17,16 @@ No day-by-day pacing — work through this in whatever order/speed makes sense. 
 
 ## 1. Problem Framing (Deliverable 3 groundwork — Problem Framing = 20% of score)
 
-- [ ] Written problem statement: exact user (shift supervisor? reliability engineer? both?), exact failure mode targeted (e.g. roll bearing wear, motor overheating — pick ONE, narrow beats generic), exact decision the tool speeds up
-- [ ] Explicit "what this does NOT do" list — assessment.md rewards knowing what to leave out
-- [ ] One paragraph: why Challenge 1 was chosen over Challenge 2/3 (this becomes both an architecture-doc section AND the interview answer)
+- [x] Written problem statement — `docs/architecture.md`: shift supervisor, roll stand bearing degradation, "should I flag this stand for inspection" as the concrete decision
+- [x] Explicit "what this does NOT do" list — `docs/architecture.md`
+- [x] One paragraph: why Challenge 1 was chosen over Challenge 2/3 — `docs/architecture.md` (also matches the interview answer from earlier)
 
 ## 2. Architecture (Deliverable 3 — Systems Thinking = 20% of score)
 
-- [ ] System diagram: data source → anomaly/ML pipeline → alert/agent layer → dashboard UI → (hypothetical) integration point back into Nucor systems
-- [ ] Name real integration points even hypothetically: historian (OSIsoft PI), SCADA, MES — shows systems thinking beyond the toy prototype
-- [ ] Explicit "what I considered and rejected" section (e.g. why not a full LSTM/deep model, why not real-time streaming infra for a prototype)
-- [ ] Explicit "where this breaks at Nucor scale" section (multi-mill, multi-sensor-vendor, data volume, model retraining, alert fatigue across shifts)
+- [x] System diagram — `docs/architecture.md`: data source → feature pipeline → detector → alert logic → dashboard + AI copilot
+- [x] Named real integration points even hypothetically — OSIsoft PI historian, SCADA/control-room screen
+- [x] "What I considered and rejected" — deep model vs. IsolationForest, streaming vs. batch, per-stand vs. global threshold, frequency-domain vs. rolling-stat features
+- [x] "Where this breaks at Nucor scale" — per-stand calibration, sensor vendor heterogeneity, model drift/retraining, alert fatigue, workflow integration
 
 ## 3. Data (Deliverable 6 — feeds Data Strategy doc)
 
@@ -63,7 +63,7 @@ No day-by-day pacing — work through this in whatever order/speed makes sense. 
 ## 8. Documentation Deliverables (write once the build is stable)
 
 - [ ] **Deliverable 2** — README: how to run it, what it does, limitations
-- [ ] **Deliverable 3** — Architecture & design doc (2-4 pages): diagram, decisions, rejected alternatives, break-at-scale
+- [x] **Deliverable 3** — Architecture & design doc (2-4 pages): diagram, decisions, rejected alternatives, break-at-scale — `docs/architecture.md`
 - [ ] **Deliverable 4** — Stack justification (1 page): why this stack vs. building on C3.ai / Palantir Foundry; mention the Playwright/CI choice here too
 - [ ] **Deliverable 5** — AI Partnership Log (1-2 pages, the most important one): tools used + purpose, 3-5 specific overrides + reasoning, 1-2 confidently-wrong AI moments, what you'd never let AI decide alone, where it was 10x vs. where it slowed you down
 - [x] **Deliverable 6** — Data strategy (1 page): what data is needed, how simulated/sourced, what you'd ask Nucor's data team for — `docs/data-strategy.md`
