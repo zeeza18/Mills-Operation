@@ -49,9 +49,9 @@ No day-by-day pacing — work through this in whatever order/speed makes sense. 
 
 ## 6. AI Copilot / Agentic Layer
 
-- [ ] Wire an AI layer (Claude/GPT) that takes a flagged anomaly + recent context and explains it in plain language + suggests next action
-- [ ] Explicitly log every override of the AI's output while building this (Deliverable 5 material — do this now, not retroactively)
-- [ ] Capture at least 1-2 moments where the AI was confidently wrong — don't discard these, they're the most valuable deliverable content
+- [x] Wire an AI layer — `app/copilot.py`, calls Claude Haiku 4.5, wired into the dashboard's "Explain this stand's status" button, verified live end-to-end through the actual browser UI
+- [x] Graceful fallback if no API key / call fails — deterministic rule-based explanation, dashboard never hard-breaks because of the AI layer
+- [x] Real "AI was confidently wrong" moment captured, not constructed: first version compared each signal to its own 60-min *rolling* mean, and the model correctly reported "coolant pressure is up" from that data — except the rolling mean itself was mid-collapse during the fault, so a noisy uptick within a drop read as a positive deviation. The model wasn't wrong given what I fed it; the context I built was misleading. Fixed by comparing against a stable whole-training-period baseline instead (`model_meta.json:baseline_stats`). This is Deliverable 5 material — write it up properly in `docs/ai-partnership-log.md`.
 
 ## 7. Testing Automation Layer — Playwright (JD-alignment bonus, not required by assessment.md)
 

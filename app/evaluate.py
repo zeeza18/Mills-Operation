@@ -12,10 +12,12 @@ actually matter for a shift supervisor:
 Run: python -m app.evaluate
 """
 
+import json
+
 import pandas as pd
 
 from app import detector
-from app.features import build_features
+from app.features import build_features, SIGNAL_COLUMNS
 from app.labels import attach_time_to_failure, split_train_test
 
 DATA_DIR = "data/synthetic"
@@ -110,14 +112,26 @@ def main():
     test.to_csv(f"{DATA_DIR}/test_scored.csv", index=False)
     lead_times.to_csv(f"{DATA_DIR}/evaluation_lead_times.csv", index=False)
 
+    # Stable, whole-training-period normal stats per raw signal -- NOT a rolling
+    # window. The copilot layer uses this (not the fast 60-min rolling mean) to
+    # judge "is this reading actually abnormal", because a rolling mean measured
+    # *during* an active fault is itself mid-collapse and gives misleading
+    # direction. See docs/ai-partnership-log.md for the case that caught this.
+    baseline_stats = {
+        col: {"mean": float(train_normal[col].mean()), "std": float(train_normal[col].std())}
+        for col in SIGNAL_COLUMNS
+    }
+
     meta = {
         "alert_threshold": trained.alert_threshold,
         "alert_threshold_percentile": detector.ALERT_THRESHOLD_PERCENTILE,
         "false_positive_rate": fp_rate,
         "failures_in_test_window": n_events_in_window,
         "failures_detected": n_detected,
+        "baseline_stats": baseline_stats,
     }
-    pd.Series(meta).to_json(f"{DATA_DIR}/model_meta.json", indent=2)
+    with open(f"{DATA_DIR}/model_meta.json", "w") as f:
+        json.dump(meta, f, indent=2)
 
     print(f"\nSaved scored test set -> {DATA_DIR}/test_scored.csv")
     print(f"Saved lead-time evaluation -> {DATA_DIR}/evaluation_lead_times.csv")

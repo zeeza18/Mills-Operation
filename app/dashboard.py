@@ -17,6 +17,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from app.copilot import build_context, explain_anomaly
+
 DATA_DIR = Path("data/synthetic")
 SIGNAL_LABELS = {
     "vibration_rms_mm_s": "Vibration (RMS mm/s)",
@@ -132,7 +134,17 @@ def main():
                 st.caption(f"Actual failure: {ev.failure_timestamp.strftime('%Y-%m-%d %H:%M')}")
 
         st.markdown("### Ask the copilot")
-        st.info("Wired up next — explains *why* this stand is flagged and suggests a next action.")
+        cache_key = f"copilot_{selected}_{s['row'].timestamp}"
+        if st.button("Explain this stand's status", key=f"btn_{cache_key}"):
+            with st.spinner("Asking the copilot..."):
+                ctx = build_context(
+                    stand_df, s["latest_score"], meta["alert_threshold"],
+                    s["is_alerting"], meta["baseline_stats"],
+                )
+                st.session_state[cache_key] = explain_anomaly(ctx)
+
+        if cache_key in st.session_state:
+            st.markdown(st.session_state[cache_key])
 
 
 if __name__ == "__main__":
