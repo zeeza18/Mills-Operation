@@ -3,9 +3,9 @@ Runs the full pipeline end to end: load data -> build features -> train
 on normal history -> score the held-out days -> report two numbers that
 actually matter for a shift supervisor:
 
-  1. Lead time — for failures in the test window, how far in advance
+  1. Lead time: for failures in the test window, how far in advance
      did the model raise a persistent alert before the actual failure?
-  2. False positive rate — of all the normal minutes in the test
+  2. False positive rate: of all the normal minutes in the test
      window, what fraction got flagged? (This is the number that
      determines whether a supervisor starts ignoring the tool.)
 
@@ -101,7 +101,7 @@ def main():
     print(f"Detected before failure: {n_detected}/{n_events_in_window}")
     if n_detected:
         detected = lead_times[lead_times.detected]
-        print(f"Lead time (minutes) — median: {detected.lead_time_min.median():.0f}, "
+        print(f"Lead time (minutes), median: {detected.lead_time_min.median():.0f}, "
               f"mean: {detected.lead_time_min.mean():.0f}, "
               f"min: {detected.lead_time_min.min():.0f}, "
               f"max: {detected.lead_time_min.max():.0f}")
@@ -112,7 +112,7 @@ def main():
     test.to_csv(f"{DATA_DIR}/test_scored.csv", index=False)
     lead_times.to_csv(f"{DATA_DIR}/evaluation_lead_times.csv", index=False)
 
-    # Stable, whole-training-period normal stats per raw signal -- NOT a rolling
+    # Stable, whole-training-period normal stats per raw signal. Not a rolling
     # window. The copilot layer uses this (not the fast 60-min rolling mean) to
     # judge "is this reading actually abnormal", because a rolling mean measured
     # *during* an active fault is itself mid-collapse and gives misleading

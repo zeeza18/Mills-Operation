@@ -3,15 +3,15 @@ AI copilot layer: takes a flagged anomaly's recent sensor context and
 explains, in plain language, what's actually going on and what a shift
 supervisor should probably do about it.
 
-Calls Claude (Haiku 4.5 -- this doesn't need heavy reasoning, just fast,
+Calls Claude (Haiku 4.5, this doesn't need heavy reasoning, just fast,
 grounded language over numbers already computed by the detector). Falls
 back to a deterministic rule-based explanation if no API key is
 configured or the call fails, so the dashboard never breaks because of
-it -- a supervisor tool degrading to "no AI explanation, but the numbers
+it. A supervisor tool degrading to "no AI explanation, but the numbers
 are still right there" is a survivable failure; the demo silently
 crashing on a network blip is not. See docs/ai-partnership-log.md for
 where this fallback earned its keep, and docs/security-risk.md for why
-a human still makes the actual call either way -- this layer explains
+a human still makes the actual call either way. This layer explains
 and suggests, it never decides.
 """
 
@@ -48,8 +48,8 @@ def build_context(stand_df: pd.DataFrame, anomaly_score: float, alert_threshold:
                    is_alert: bool, baseline_stats: dict) -> AnomalyContext:
     """Turns the latest row for a stand into a ranked list of 'which signals
     are actually driving this anomaly score', measured against each signal's
-    stable whole-training-period mean/std (baseline_stats, from model_meta.json)
-    -- not the fast 60-min rolling mean used for detection features.
+    stable whole-training-period mean/std (baseline_stats, from model_meta.json),
+    not the fast 60-min rolling mean used for detection features.
 
     First version compared against the rolling mean instead, and it produced a
     real, wrong-sounding explanation: coolant pressure was crashing toward
@@ -79,7 +79,7 @@ def build_context(stand_df: pd.DataFrame, anomaly_score: float, alert_threshold:
 
 def _fallback_explanation(ctx: AnomalyContext, reason: str = "no API key configured") -> str:
     top = ctx.signal_deviations[:2]
-    lines = [f"_[offline fallback — {reason}]_",
+    lines = [f"_[offline fallback: {reason}]_",
              f"**{ctx.stand_id}**: anomaly score {ctx.anomaly_score:.2f} (threshold {ctx.alert_threshold:.2f})"]
     for label, raw, z in top:
         direction = "above" if z > 0 else "below"
@@ -87,7 +87,7 @@ def _fallback_explanation(ctx: AnomalyContext, reason: str = "no API key configu
     if ctx.is_alert:
         lines.append("Recommend flagging this stand for inspection before the next run.")
     else:
-        lines.append("No sustained alert — within normal variation for now.")
+        lines.append("No sustained alert. Within normal variation for now.")
     return "\n".join(lines)
 
 

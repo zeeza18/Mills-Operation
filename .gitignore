@@ -223,19 +223,22 @@ playwright-report/
 test-results/
 playwright/.cache/
 
-# Confidential assignment materials — see assessment.md's own confidentiality clause.
+# Confidential assignment materials. See assessment.md's own confidentiality clause.
 # Keep the take-home prompt and JD local only; never push to this public repo.
 assessment.md
 job_description.md
 *.docx
 
-# Personal rehearsal notes for the walkthrough video -- not a submission deliverable itself.
+# Personal rehearsal notes for the walkthrough video, not a submission deliverable itself.
 video-script.md
 
-# Generated synthetic data — reproducible via data/generate_synthetic_data.py (fixed seed),
-# not worth bloating repo history with a regenerable 25MB CSV.
+# Generated synthetic data, reproducible via data/generate_synthetic_data.py (fixed seed).
+# Not worth bloating repo history with a regenerable 25MB CSV.
 data/synthetic/
 
-# Trained model artifact — reproducible via `python -m app.evaluate`.
+# Trained model artifact, reproducible via `python -m app.evaluate`.
 app/model.joblib
+
+# Local Claude Code state, not project content.
+.claude/
 

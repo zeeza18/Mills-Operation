@@ -2,8 +2,8 @@
 Turns raw 1-minute sensor readings into features an anomaly model can
 actually use.
 
-A raw vibration reading of 9.5 mm/s doesn't mean anything on its own —
-it only means something relative to what that stand's normal running
+A raw vibration reading of 9.5 mm/s doesn't mean anything on its own.
+It only means something relative to what that stand's normal running
 value looks like, and whether it's trending. So for each signal we add:
 
   - a rolling mean and rolling std over the last 60 minutes (is the
@@ -11,7 +11,7 @@ value looks like, and whether it's trending. So for each signal we add:
   - a 15-minute rate of change (is it actively trending, not just
     sitting at an elevated-but-stable level)
 
-This is deliberately simple — no FFT/frequency-domain features, no
+This is deliberately simple, no FFT/frequency-domain features, no
 cross-signal interaction terms. Started there on purpose: see
 docs/ai-partnership-log.md for why I didn't reach for something
 fancier first.
@@ -51,7 +51,7 @@ def build_features(readings: pd.DataFrame) -> pd.DataFrame:
         }))
 
     features = pd.concat(feature_frames, axis=1)
-    # first 60 minutes of each stand-day have no full rolling window yet — drop them
+    # first 60 minutes of each stand-day have no full rolling window yet, drop them
     features = features.dropna().reset_index(drop=True)
     return features
 

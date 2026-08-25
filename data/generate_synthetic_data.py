@@ -87,7 +87,7 @@ def simulate_stand_day(rng, stand_id, day_start, will_fail):
             base_mean = BASELINE[name][0]
             drift = (target - base_mean) * progress
             signals[name] = signals[name] + drift
-            # widen noise as the fault develops — real bearings get noisier, not just shifted
+            # widen noise as the fault develops: real bearings get noisier, not just shifted
             signals[name] += rng.normal(0, BASELINE[name][1] * progress * 1.5, n_points)
 
     df = pd.DataFrame({"timestamp": timestamps, "stand_id": stand_id, **signals})

@@ -4,7 +4,7 @@ splits data into train/test by day rather than randomly.
 
 Why a time-based split and not a random one: this is a monitoring
 problem, not a generic classification problem. In production you'd
-train on history and evaluate on what comes after — a random shuffle
+train on history and evaluate on what comes after. A random shuffle
 would let the model implicitly peek at data from the same failure
 event it's being tested against. Did it the "quick" random way first,
 got suspiciously good numbers, and that was the tell something was
