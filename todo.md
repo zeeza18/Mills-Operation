@@ -32,8 +32,8 @@ No day-by-day pacing — work through this in whatever order/speed makes sense. 
 
 - [x] Decide + document exact synthetic/proxy dataset approach — `data/generate_synthetic_data.py`, 6 roll stands x 45 days x 5 signals, seeded/reproducible
 - [x] Generate dataset with realistic failure-precursor patterns — non-linear degradation ramp (6-48h) into ~22% of stand-days, spot-checked
-- [ ] Document: what real data this would need at Nucor (tag names, sampling rate, historian source), how you'd request access, who owns it
-- [ ] Note data quality angle explicitly — this is also a live JD theme (MDM/data quality), so call it out even briefly: what validation you'd want on this data if it were real (echoes the MDM anomaly-detection bullet)
+- [x] Document: what real data this would need at Nucor (tag names, sampling rate, historian source), how you'd request access, who owns it — `docs/data-strategy.md`
+- [x] Note data quality angle explicitly — `docs/data-strategy.md`, tied explicitly to the JD's MDM anomaly-detection bullet
 
 ## 4. Core Build — Anomaly Detection Engine
 
@@ -57,7 +57,7 @@ No day-by-day pacing — work through this in whatever order/speed makes sense. 
 
 - [x] Playwright test suite — `tests/dashboard.spec.js`: loads + fleet status, real detection numbers (not placeholders), per-stand charts render, copilot button produces a grounded response
 - [x] AI-generated first draft, then actually run and fixed against real failures — not a constructed story: found and fixed a genuine `ModuleNotFoundError` in `app/dashboard.py` (bare `streamlit run` doesn't add the repo root to sys.path; my own manual browser testing had masked this by using `python -m streamlit run` instead), plus bumped a too-tight default assertion timeout once real Streamlit cold-start latency showed up. Directly demonstrates the JD's "AI-powered testing automation agents that autonomously generate, execute, and evaluate test cases."
-- [x] Wired into GitHub Actions — `.github/workflows/ci.yml`: generates data, trains+evaluates the model, runs the full Playwright suite on every push/PR. Documented as the accessible stand-in for Azure DevOps in `docs/stack-justification.md` (write that doc next).
+- [x] Wired into GitHub Actions — `.github/workflows/ci.yml`: generates data, trains+evaluates the model, runs the full Playwright suite on every push/PR. Documented as the accessible stand-in for Azure DevOps in `docs/stack-justification.md`.
 - [x] Note in the architecture doc about the CI/testing layer and what it caught — `docs/architecture.md`
 
 ## 8. Documentation Deliverables (write once the build is stable)
