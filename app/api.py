@@ -87,9 +87,29 @@ def get_timeseries(stand_id: str):
     df = _stand_df(stand_id)
     cols = ["timestamp", "vibration_rms_mm_s", "bearing_temp_c", "motor_current_a",
             "line_speed_mpm", "coolant_pressure_psi", "anomaly_score", "is_alert"]
-    out = df[cols].copy()
+    out = _downsample(df[cols], target_points=400)
     out["timestamp"] = out["timestamp"].astype(str)
     return out.to_dict(orient="records")
+
+
+def _downsample(df: pd.DataFrame, target_points: int) -> pd.DataFrame:
+    """A stand-day window is ~13K raw 1-minute rows. Charting all of them
+    directly overwhelms an SVG line chart (slow to render, sometimes silently
+    doesn't render at all) for no visual benefit at typical screen widths.
+    Keeps every alert row (so no flagged period visually disappears) plus an
+    evenly spaced sample of the rest, then re-sorts by time."""
+    if len(df) <= target_points:
+        return df.sort_values("timestamp")
+
+    alert_rows = df[df.is_alert]
+    normal_rows = df[~df.is_alert]
+
+    remaining_budget = max(target_points - len(alert_rows), 0)
+    if remaining_budget and len(normal_rows) > remaining_budget:
+        step = len(normal_rows) // remaining_budget
+        normal_rows = normal_rows.iloc[::step]
+
+    return pd.concat([alert_rows, normal_rows]).sort_values("timestamp")
 
 
 @app.get("/api/stands/{stand_id}/summary")

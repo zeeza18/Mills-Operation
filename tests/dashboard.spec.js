@@ -30,7 +30,7 @@ test.describe('Mills-Operation reliability console', () => {
     await expect(panel).toContainText('%');
   });
 
-  test('selecting a stand renders its signal charts', async ({ page }) => {
+  test('selecting a stand renders its signal charts with real content', async ({ page }) => {
     await page.goto('/');
 
     await page.getByTestId('fleet-card-STAND-02').click();
@@ -42,7 +42,18 @@ test.describe('Mills-Operation reliability console', () => {
       'line_speed_mpm',
       'coolant_pressure_psi',
     ]) {
-      await expect(page.getByTestId(`chart-${key}`)).toBeVisible();
+      const chart = page.getByTestId(`chart-${key}`);
+      await expect(chart).toBeVisible();
+      // The container div is visible the moment its title renders, even if the
+      // chart inside never draws anything. This app shipped exactly that bug
+      // once (12,960 undownsampled points silently failed to render), and this
+      // toBeVisible-on-the-wrapper check alone did not catch it. The line always
+      // renders at least one SVG path; alert markers add more, so check for at
+      // least one, not an exact count.
+      await expect(async () => {
+        const count = await chart.locator('svg path').count();
+        expect(count).toBeGreaterThan(0);
+      }).toPass({ timeout: 15_000 });
     }
   });
 

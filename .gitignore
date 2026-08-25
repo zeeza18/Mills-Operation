@@ -242,3 +242,6 @@ app/model.joblib
 # Local Claude Code state, not project content.
 .claude/
 
+# Ad-hoc screenshots dropped in root for bug reports, not project content.
+image.png
+
