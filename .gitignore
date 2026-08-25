@@ -229,6 +229,9 @@ assessment.md
 job_description.md
 *.docx
 
+# Personal rehearsal notes for the walkthrough video -- not a submission deliverable itself.
+video-script.md
+
 # Generated synthetic data — reproducible via data/generate_synthetic_data.py (fixed seed),
 # not worth bloating repo history with a regenerable 25MB CSV.
 data/synthetic/
