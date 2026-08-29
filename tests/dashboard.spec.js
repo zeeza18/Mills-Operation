@@ -60,6 +60,8 @@ test.describe('Mills-Operation reliability console', () => {
   test('copilot button produces a real explanation for the selected stand', async ({ page }) => {
     await page.goto('/');
 
+    await page.getByTestId('fleet-card-STAND-01').click();
+
     const button = page.getByTestId('explain-button');
     await expect(button).toBeVisible();
     await button.click();

@@ -27,26 +27,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-interface Props {
-  summary: StandSummary;
-  meta: ModelMeta;
-}
-
-export function StatusPanel({ summary, meta }: Props) {
+export function ModelPerformancePanel({ meta }: { meta: ModelMeta }) {
   return (
-    <div className="flex flex-col gap-3" data-testid="status-panel">
-      <Section title="Status">
-        <Metric
-          label="Latest anomaly score"
-          value={summary.latestScore.toFixed(3)}
-          tone={summary.isAlerting ? "alert" : "ok"}
-        />
-        <Metric label="Alert threshold" value={summary.alertThreshold.toFixed(3)} />
-        {summary.firstAlertAt && (
-          <Metric label="First alert" value={summary.firstAlertAt} />
-        )}
-      </Section>
-
+    <div data-testid="status-panel">
       <Section title="Model performance (held-out test)">
         <Metric
           label="Failures detected"
@@ -57,6 +40,25 @@ export function StatusPanel({ summary, meta }: Props) {
           label="False alarm rate"
           value={`${(meta.false_positive_rate * 100).toFixed(2)}%`}
         />
+        <Metric label="Alert threshold" value={meta.alert_threshold.toFixed(3)} />
+      </Section>
+    </div>
+  );
+}
+
+export function StandDetailPanel({ summary }: { summary: StandSummary }) {
+  return (
+    <div className="flex flex-col gap-3" data-testid="stand-detail-panel">
+      <Section title="Status">
+        <Metric
+          label="Latest anomaly score"
+          value={summary.latestScore.toFixed(3)}
+          tone={summary.isAlerting ? "alert" : "ok"}
+        />
+        <Metric label="Alert threshold" value={summary.alertThreshold.toFixed(3)} />
+        {summary.firstAlertAt && (
+          <Metric label="First alert" value={summary.firstAlertAt} />
+        )}
       </Section>
 
       {summary.groundTruthFailures.length > 0 && (

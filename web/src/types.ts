@@ -2,6 +2,11 @@ export interface FleetEntry {
   standId: string;
   latestScore: number;
   isAlerting: boolean;
+  vibration_rms_mm_s: number;
+  bearing_temp_c: number;
+  motor_current_a: number;
+  line_speed_mpm: number;
+  coolant_pressure_psi: number;
 }
 
 export interface TimeseriesPoint {
@@ -12,7 +17,16 @@ export interface TimeseriesPoint {
   line_speed_mpm: number;
   coolant_pressure_psi: number;
   anomaly_score: number;
-  is_alert: boolean;
+}
+
+export interface AlertBand {
+  start: string;
+  end: string;
+}
+
+export interface TimeseriesResponse {
+  points: TimeseriesPoint[];
+  alertBands: AlertBand[];
 }
 
 export interface StandSummary {
@@ -36,6 +50,34 @@ export interface ModelMeta {
 export interface ExplainResponse {
   explanation: string;
   source: "live" | "fallback";
+}
+
+export type SignalKey =
+  | "vibration_rms_mm_s"
+  | "bearing_temp_c"
+  | "motor_current_a"
+  | "line_speed_mpm"
+  | "coolant_pressure_psi";
+
+export interface SimulatorState {
+  values: Record<SignalKey, number>;
+  alertThreshold: number;
+}
+
+export interface DegradeTickResult {
+  timestamp: string;
+  vibration_rms_mm_s: number;
+  bearing_temp_c: number;
+  motor_current_a: number;
+  line_speed_mpm: number;
+  coolant_pressure_psi: number;
+  anomaly_score: number;
+  isAlerting: boolean;
+  alertThreshold: number;
+  tick: number;
+  durationMinutes: number;
+  progress: number;
+  done: boolean;
 }
 
 export const SIGNALS = [

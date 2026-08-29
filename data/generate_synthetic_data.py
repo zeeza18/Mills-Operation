@@ -102,10 +102,18 @@ def main():
     all_readings = []
     failure_events = []
 
+    # Ends yesterday, not a fixed calendar date. The live feed (app/live_feed.py)
+    # starts fresh from "now" every time the API boots, so anchoring this
+    # historical window to "today" instead of a hardcoded date keeps it flowing
+    # straight into the live data with no gap, instead of being stuck months in
+    # the past while the live feed moves forward. Re-run this (and app/evaluate)
+    # occasionally to keep the seam recent.
+    base_date = pd.Timestamp.now().normalize() - pd.Timedelta(days=N_DAYS)
+
     for stand in range(1, N_STANDS + 1):
         stand_id = f"STAND-{stand:02d}"
         for day in range(N_DAYS):
-            day_start = pd.Timestamp("2026-01-01") + pd.Timedelta(days=day)
+            day_start = base_date + pd.Timedelta(days=day)
             will_fail = rng.random() < FAILURE_RATE
             df, failure_ts, degrade_start_ts = simulate_stand_day(rng, stand_id, day_start, will_fail)
             all_readings.append(df)

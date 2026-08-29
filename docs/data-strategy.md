@@ -22,6 +22,8 @@ So I rebuilt the failure lead-up as a non-linear ramp. Starting somewhere betwee
 
 The generator (`data/generate_synthetic_data.py`) is seeded, so it's fully reproducible. I didn't check the 25MB output into the repo, I checked in the script that produces it deterministically. Output: 6 stands times 45 days at 1-minute resolution (about 389K rows), with roughly 22% of stand-days ending in an injected failure, paired with a `failure_events.csv` ground-truth label file.
 
+**Update once the live tier existed:** the 45 day window used to start on a hardcoded date, January 1st. That was fine for training but became a real problem once the dashboard could filter by Today, Past week, or Last month, since the live feed only knows about "now" onward and the historical window was frozen months in the past, leaving a huge silent gap between the two. The generator now anchors its window to end yesterday, computed off the real clock whenever it runs, instead of a fixed date. Same seed, same signal sequences, only the calendar labels move, so nothing about the actual data or the trained model changed, it just stays current instead of drifting further into the past every day this sits unrun. Full story, including a retraining mistake I almost made over this exact change, in `docs/ai-partnership-log.md`.
+
 ## Where this is honestly weak
 
 This is my best guess at realistic magnitudes and failure dynamics, not something measured off a real mill. The five signals, the 22% failure rate, the 6 to 48 hour degradation window: all reasonable assumptions, none of them verified against actual Nucor equipment. I'd rather say that plainly here than pretend the numbers are more grounded than they are.

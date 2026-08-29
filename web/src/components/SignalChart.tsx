@@ -2,29 +2,28 @@ import {
   CartesianGrid,
   Line,
   ComposedChart,
-  Scatter,
+  ReferenceArea,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import type { TimeseriesPoint } from "../types";
+import type { AlertBand, TimeseriesPoint } from "../types";
 
 interface Props {
   label: string;
   unit: string;
   signalKey: keyof TimeseriesPoint;
   data: TimeseriesPoint[];
+  alertBands: AlertBand[];
 }
 
 const dateFmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
 
-export function SignalChart({ label, unit, signalKey, data }: Props) {
+export function SignalChart({ label, unit, signalKey, data, alertBands }: Props) {
   const chartData = data.map((d) => ({
-    timestamp: d.timestamp,
     t: new Date(d.timestamp).getTime(),
     value: d[signalKey] as number,
-    alertValue: d.is_alert ? (d[signalKey] as number) : null,
   }));
 
   return (
@@ -67,6 +66,18 @@ export function SignalChart({ label, unit, signalKey, data }: Props) {
             }}
             labelFormatter={(t) => new Date(t as number).toLocaleString()}
           />
+          {alertBands.map((band) => (
+            <ReferenceArea
+              key={band.start}
+              x1={new Date(band.start).getTime()}
+              x2={new Date(band.end).getTime()}
+              fill="var(--color-alert)"
+              fillOpacity={0.18}
+              stroke="var(--color-alert)"
+              strokeOpacity={0.4}
+              ifOverflow="visible"
+            />
+          ))}
           <Line
             type="monotone"
             dataKey="value"
@@ -75,7 +86,6 @@ export function SignalChart({ label, unit, signalKey, data }: Props) {
             dot={false}
             isAnimationActive={false}
           />
-          <Scatter dataKey="alertValue" fill="var(--color-alert)" isAnimationActive={false} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>

@@ -18,11 +18,10 @@ import pandas as pd
 
 from app import detector
 from app.features import build_features, SIGNAL_COLUMNS
-from app.labels import attach_time_to_failure, split_train_test
+from app.labels import attach_time_to_failure, is_clean_normal, split_train_test
 
 DATA_DIR = "data/synthetic"
 MODEL_PATH = "app/model.joblib"
-DEGRADE_WINDOW_MAX_MIN = 24 * 60  # matches generator's day-length cap
 
 
 def load_data():
@@ -31,9 +30,10 @@ def load_data():
     return readings, events
 
 
-def evaluate_lead_times(test_scored: pd.DataFrame, events: pd.DataFrame, threshold: float) -> pd.DataFrame:
+def evaluate_lead_times(test_scored: pd.DataFrame, events: pd.DataFrame, threshold: float,
+                         baseline_stats: dict) -> pd.DataFrame:
     test_scored = test_scored.copy()
-    test_scored["is_alert"] = detector.find_alerts(test_scored, threshold)
+    test_scored["is_alert"] = detector.find_alerts_with_backstop(test_scored, threshold, baseline_stats)
 
     rows = []
     for _, ev in events.iterrows():
@@ -58,13 +58,16 @@ def evaluate_lead_times(test_scored: pd.DataFrame, events: pd.DataFrame, thresho
     return pd.DataFrame(rows)
 
 
-def evaluate_false_positive_rate(test_scored: pd.DataFrame, threshold: float) -> float:
+def evaluate_false_positive_rate(test_scored: pd.DataFrame, threshold: float,
+                                  baseline_stats: dict) -> float:
     test_scored = test_scored.copy()
-    test_scored["is_alert"] = detector.find_alerts(test_scored, threshold)
-    normal_rows = test_scored[
-        test_scored["time_to_failure_min"].isna()
-        | (test_scored["time_to_failure_min"] > DEGRADE_WINDOW_MAX_MIN)
-    ]
+    test_scored["is_alert"] = detector.find_alerts_with_backstop(test_scored, threshold, baseline_stats)
+    # is_clean_normal excludes rows both approaching a failure AND recovering
+    # from one (see app/labels.py). Recovery matters here: the generator holds
+    # a stand at failed values for the rest of the day once it fails, so the
+    # hour after a failure is still visibly broken, not a clean baseline
+    # minute, even though it may be well over 24h before the NEXT failure.
+    normal_rows = test_scored[is_clean_normal(test_scored)]
     if normal_rows.empty:
         return float("nan")
     return normal_rows["is_alert"].mean()
@@ -83,7 +86,21 @@ def main():
     print(f"  train_normal rows: {len(train_normal):,}")
     print(f"  test rows: {len(test):,}")
 
-    print("Training IsolationForest on normal operating windows...")
+    # Stable, whole-training-period normal stats per raw signal. Not a rolling
+    # window. Computed here, before scoring, because it's now used for two
+    # things: the copilot layer's "is this reading actually abnormal" judgment
+    # (a rolling mean measured *during* an active fault is itself mid-collapse
+    # and gives misleading direction, see docs/ai-partnership-log.md for the
+    # case that caught this), and now also detector.find_alerts_with_backstop,
+    # the fix for LocalOutlierFactor losing track of a sustained failure once
+    # its own recent minutes become each other's local "normal" (see the
+    # comment on BACKSTOP_Z_THRESHOLD in app/detector.py).
+    baseline_stats = {
+        col: {"mean": float(train_normal[col].mean()), "std": float(train_normal[col].std())}
+        for col in SIGNAL_COLUMNS
+    }
+
+    print("Training LocalOutlierFactor on normal operating windows...")
     trained = detector.train(train_normal)
     detector.save(trained, MODEL_PATH)
     print(f"  alert_threshold ({detector.ALERT_THRESHOLD_PERCENTILE}th pct of train anomaly scores): {trained.alert_threshold:.3f}")
@@ -91,10 +108,10 @@ def main():
     print("Scoring held-out test window...")
     test = test.copy()
     test["anomaly_score"] = detector.score(trained, test)
-    test["is_alert"] = detector.find_alerts(test, trained.alert_threshold)
+    test["is_alert"] = detector.find_alerts_with_backstop(test, trained.alert_threshold, baseline_stats)
 
     print("\n--- Evaluation ---")
-    lead_times = evaluate_lead_times(test, events, trained.alert_threshold)
+    lead_times = evaluate_lead_times(test, events, trained.alert_threshold, baseline_stats)
     n_events_in_window = len(lead_times)
     n_detected = int(lead_times["detected"].sum()) if n_events_in_window else 0
     print(f"Failure events in held-out test window: {n_events_in_window}")
@@ -106,21 +123,11 @@ def main():
               f"min: {detected.lead_time_min.min():.0f}, "
               f"max: {detected.lead_time_min.max():.0f}")
 
-    fp_rate = evaluate_false_positive_rate(test, trained.alert_threshold)
+    fp_rate = evaluate_false_positive_rate(test, trained.alert_threshold, baseline_stats)
     print(f"False positive rate on normal test minutes: {fp_rate:.4%}")
 
     test.to_csv(f"{DATA_DIR}/test_scored.csv", index=False)
     lead_times.to_csv(f"{DATA_DIR}/evaluation_lead_times.csv", index=False)
-
-    # Stable, whole-training-period normal stats per raw signal. Not a rolling
-    # window. The copilot layer uses this (not the fast 60-min rolling mean) to
-    # judge "is this reading actually abnormal", because a rolling mean measured
-    # *during* an active fault is itself mid-collapse and gives misleading
-    # direction. See docs/ai-partnership-log.md for the case that caught this.
-    baseline_stats = {
-        col: {"mean": float(train_normal[col].mean()), "std": float(train_normal[col].std())}
-        for col in SIGNAL_COLUMNS
-    }
 
     meta = {
         "alert_threshold": trained.alert_threshold,
