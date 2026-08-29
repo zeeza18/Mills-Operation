@@ -7,7 +7,7 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](requirements.txt)
 [![React 19](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white)](web/package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](web/tsconfig.json)
-[![Powered by Claude](https://img.shields.io/badge/AI-Claude%20Haiku%204.5-D97757)](docs/ai-partnership-log.md)
+[![AI Copilot](https://img.shields.io/badge/AI-LLM%20tool%20use-6E56CF)](docs/copilot-how-it-works.md)
 
 ![Fleet overview](docs/screenshots/fleet-overview.png)
 
@@ -87,8 +87,8 @@ flowchart TD
     UI --> CHAT["Copilot Chat"]
 
     CHAT --> COPILOT["copilot.py"]
-    COPILOT <--> CLAUDE["Claude Haiku 4.5"]
-    CLAUDE <--> TOOLS["fleet_tools.py<br/>6 read-only functions"]
+    COPILOT <--> LLM["Fast, low-cost LLM"]
+    LLM <--> TOOLS["fleet_tools.py<br/>6 read-only functions"]
     TOOLS --> LIVEFEED
     TOOLS --> HIST
 ```
@@ -104,7 +104,7 @@ The AI copilot doesn't use embeddings or a vector database. With only 6 stands, 
 | Backend | FastAPI | Serves scored data, runs the live feed as a background task, proxies the copilot |
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS v4 | A real supervisor-facing tool, not a script re-running top to bottom on every click |
 | Charts | Recharts | Alert bands as shaded regions, not thousands of individual markers |
-| AI copilot | Claude Haiku 4.5, Anthropic tool use | Fast and cheap for grounded, short explanations; tool use over RAG since the underlying data is small and structured |
+| AI copilot | A fast, low-cost LLM, tool use | Fast and cheap for grounded, short explanations; tool use over RAG since the underlying data is small and structured |
 | Testing | Playwright | Core flows gated in CI on every push |
 | CI | GitHub Actions | Generate data, train, evaluate, test, gate on all of it |
 

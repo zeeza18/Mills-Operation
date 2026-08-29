@@ -1,12 +1,12 @@
 """
 Deterministic query functions the fleet copilot can call as tools, plus
-their Claude tool-use schemas.
+their tool-use schemas.
 
 This is the retrieval half of "RAG for structured data." Vector search
 solves a problem that doesn't exist here (a text corpus too big to fit in
 context); dumping the whole fleet's history into every prompt instead
 works but wastes tokens and makes it easy for an unrelated number to leak
-into an unrelated answer. Tool use is the middle path: Claude picks which
+into an unrelated answer. Tool use is the middle path: the model picks which
 of these narrow, real functions to call based on the actual question,
 gets back only the numbers relevant to answering it, and every number it
 sees came straight out of computed data, never invented.

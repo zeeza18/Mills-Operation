@@ -3,7 +3,7 @@ AI copilot layer: takes a flagged anomaly's recent sensor context and
 explains, in plain language, what's actually going on and what a shift
 supervisor should probably do about it.
 
-Calls Claude (Haiku 4.5, this doesn't need heavy reasoning, just fast,
+Calls a fast, low-cost LLM (this doesn't need heavy reasoning, just fast,
 grounded language over numbers already computed by the detector). Falls
 back to a deterministic rule-based explanation if no API key is
 configured or the call fails, so the dashboard never breaks because of
@@ -24,6 +24,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# The provider's own model identifier, required as-is for the API call to
+# resolve to a real model; this one string can't be genericized without
+# breaking the request.
 MODEL = "claude-haiku-4-5-20251001"
 MAX_TOKENS = 300
 
@@ -184,7 +187,7 @@ def answer_fleet_question(history: list[dict]) -> str:
     """Free-text Q&A across the whole fleet, not scoped to one stand.
 
     Unlike explain_anomaly (one fixed prompt, context handed over up front),
-    this hands Claude a small set of real query functions (app/fleet_tools.py)
+    this hands the model a small set of real query functions (app/fleet_tools.py)
     and lets it decide which ones a given question actually needs, then
     calls them itself and hands the results back. That keeps every answer
     grounded in a small, targeted slice of real data instead of either the
