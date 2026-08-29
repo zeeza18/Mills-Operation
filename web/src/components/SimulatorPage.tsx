@@ -26,6 +26,11 @@ export function SimulatorPage({ soundEnabled }: Props) {
   const [latest, setLatest] = useState<DegradeTickResult | null>(null);
   const [firstAlertTick, setFirstAlertTick] = useState<number | null>(null);
   const tickInFlight = useRef(false);
+  // Same throttle as the fleet siren in App.tsx: this stand's own isAlerting
+  // can flap true/false/true as the score crosses the threshold during a
+  // ramp, and each flip used to re-run the alert effect and fire the siren
+  // immediately again, well more often than the intended once every 12s.
+  const lastPlayedRef = useRef(0);
 
   useEffect(() => {
     api.simulatorState().then(applyState);
@@ -112,6 +117,9 @@ export function SimulatorPage({ soundEnabled }: Props) {
   useEffect(() => {
     if (!soundEnabled || !isAlerting) return;
     const sound = () => {
+      const now = Date.now();
+      if (now - lastPlayedRef.current < ALERT_REPEAT_MS) return;
+      lastPlayedRef.current = now;
       playSiren();
       announceAlert(["SIM-STAND"]);
     };
@@ -178,6 +186,10 @@ export function SimulatorPage({ soundEnabled }: Props) {
             />
             <span className="text-xs text-text-muted">minutes</span>
           </div>
+          <p className="-mt-2 text-xs text-text-faint">
+            Simulated minutes, not real ones, plays out in about{" "}
+            {((durationMinutes * TICK_MS) / 1000).toFixed(1)}s so you can watch the full run.
+          </p>
 
           <div className="flex gap-2">
             <button
@@ -200,28 +212,57 @@ export function SimulatorPage({ soundEnabled }: Props) {
 
         <div className="flex w-full shrink-0 flex-col gap-3 lg:w-96">
           <div className="rounded-lg border border-border bg-surface p-4">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-faint">
-              Signal values
+            <h3 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-text-faint">
+              {latest ? "Live readings" : "Signal values"}
+              {running && (
+                <span className="flex items-center gap-1 text-[10px] normal-case text-accent">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+                  live
+                </span>
+              )}
             </h3>
-            <div className="flex flex-col gap-3">
-              {SIGNALS.map((s) => (
-                <label key={s.key} className="flex items-center justify-between gap-3">
-                  <span className="text-xs text-text-muted">
-                    {s.label} <span className="text-text-faint">({s.unit})</span>
-                  </span>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={drafts[s.key] ?? ""}
-                    disabled={running}
-                    onChange={(e) => handleDraftChange(s.key, e.target.value)}
-                    onBlur={() => commitDraft(s.key)}
-                    onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-                    className="w-24 rounded-md border border-border bg-bg px-2 py-1 text-right font-mono text-sm text-text disabled:opacity-50"
-                  />
-                </label>
-              ))}
-            </div>
+            {latest ? (
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                {SIGNALS.map((s) => (
+                  <div key={s.key}>
+                    <p className="text-[10px] uppercase tracking-wide text-text-faint">{s.label}</p>
+                    <p className="font-mono text-sm text-text">
+                      {values[s.key].toFixed(2)} <span className="text-xs text-text-faint">{s.unit}</span>
+                    </p>
+                  </div>
+                ))}
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-text-faint">Anomaly score</p>
+                  <p className={["font-mono text-sm", isAlerting ? "text-alert" : "text-text"].join(" ")}>
+                    {latest.anomaly_score.toFixed(3)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-text-faint">Threshold</p>
+                  <p className="font-mono text-sm text-text">{alertThreshold.toFixed(3)}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {SIGNALS.map((s) => (
+                  <label key={s.key} className="flex items-center justify-between gap-3">
+                    <span className="text-xs text-text-muted">
+                      {s.label} <span className="text-text-faint">({s.unit})</span>
+                    </span>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={drafts[s.key] ?? ""}
+                      disabled={running}
+                      onChange={(e) => handleDraftChange(s.key, e.target.value)}
+                      onBlur={() => commitDraft(s.key)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+                      className="w-24 rounded-md border border-border bg-bg px-2 py-1 text-right font-mono text-sm text-text disabled:opacity-50"
+                    />
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
 
           {history.length > 1 && (

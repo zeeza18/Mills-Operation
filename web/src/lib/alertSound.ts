@@ -1,5 +1,11 @@
 let audioCtx: AudioContext | null = null;
-let activeOscillator: OscillatorNode | null = null;
+// A set, not a single slot: the live fleet and the degradation simulator each
+// have their own alert loop, and either can fire a siren independently. A
+// single "activeOscillator" variable meant the second siren to start silently
+// overwrote the reference to the first, so muting could only ever reach
+// whichever one fired most recently, and the other kept ringing to the end
+// on its own, which read as the mute button not actually working.
+const activeOscillators = new Set<OscillatorNode>();
 
 function getContext(): AudioContext {
   if (!audioCtx) {
@@ -66,25 +72,26 @@ export async function playSiren() {
   osc.start(now);
   osc.stop(now + duration + 0.02);
   osc.addEventListener("ended", () => {
-    if (activeOscillator === osc) activeOscillator = null;
+    activeOscillators.delete(osc);
   });
-  activeOscillator = osc;
+  activeOscillators.add(osc);
 }
 
-// Immediately cuts off whatever's currently playing: the in-progress siren
-// wail (which otherwise runs its full ~2.8s regardless of muting) and any
-// queued or in-progress spoken announcement. Muting was previously "stop
-// firing new alerts", not "stop the one already playing", which read as the
-// mute button not working if you hit it mid-wail.
+// Immediately cuts off everything currently playing: every in-progress siren
+// wail (which otherwise runs its full ~2.8s regardless of muting, and the
+// fleet and the simulator can each have one going at once) and any queued or
+// in-progress spoken announcement. Muting was previously "stop firing new
+// alerts", not "stop the ones already playing", which read as the mute
+// button doing nothing if two sirens overlapped and it hit mid-wail.
 export function stopAlertSound() {
-  if (activeOscillator) {
+  for (const osc of activeOscillators) {
     try {
-      activeOscillator.stop();
+      osc.stop();
     } catch {
       // already stopped; nothing to do
     }
-    activeOscillator = null;
   }
+  activeOscillators.clear();
   if ("speechSynthesis" in window) {
     window.speechSynthesis.cancel();
   }

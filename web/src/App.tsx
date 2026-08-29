@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { CurrentReadingsPanel } from "./components/CurrentReadingsPanel";
 import { FleetCopilotPage } from "./components/FleetCopilotPage";
@@ -83,6 +83,13 @@ export default function App() {
   const [minDate, setMinDate] = useState(todayStr); // refined once /data-bounds resolves
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState(todayStr);
+  // Tracks the last real siren play, independent of React's effect
+  // lifecycle. The fleet poll below replaces the fleet array every 20s even
+  // when nothing changed, which used to re-run this effect and fire the
+  // siren immediately on every single poll, not just once every 12s as
+  // intended, since "sound()" always ran once on mount with no memory of
+  // when it had last actually played.
+  const fleetLastPlayedRef = useRef(0);
 
   // The historical set is a rolling window ending yesterday (see
   // historical.ensure_fresh in the backend), not a fixed calendar date, so
@@ -131,13 +138,18 @@ export default function App() {
   // Repeats the siren + spoken stand list every 12 seconds for as long as
   // any stand is alerting and sound is enabled. Fires immediately when
   // turned on (or a new alert appears) rather than waiting a full 12s for
-  // the first cue.
+  // the first cue, but not more often than every 12s even if this effect
+  // re-runs sooner than that (a fresh fleet poll every 20s, even one that
+  // changes nothing, still creates a new array reference and re-triggers it).
   useEffect(() => {
     if (!fleet || !soundEnabled) return;
     const alertingIds = fleet.filter((f) => f.isAlerting).map((f) => f.standId);
     if (alertingIds.length === 0) return;
 
     const sound = () => {
+      const now = Date.now();
+      if (now - fleetLastPlayedRef.current < ALERT_REPEAT_MS) return;
+      fleetLastPlayedRef.current = now;
       playSiren();
       announceAlert(alertingIds);
     };
