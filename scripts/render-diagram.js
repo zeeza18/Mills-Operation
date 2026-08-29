@@ -10,32 +10,47 @@ const fs = require('fs');
 const OUT = path.join(__dirname, '..', 'docs', 'screenshots', 'architecture-diagram.png');
 
 const mermaidSource = `
-flowchart TD
+flowchart LR
     subgraph Data["Data"]
-        GEN["generate_synthetic_data.py<br/>rolling 45-day window, ending yesterday"]
-        LIVEFEED["live_feed.py<br/>ticks once every real minute"]
+        direction TB
+        GEN["generate_synthetic_data.py<br/>rolling 45-day window"]
+        LIVEFEED["live_feed.py<br/>ticks every real minute"]
+        HIST["historical.py<br/>cached, auto-refreshes"]
+        GEN --> HIST
     end
 
     subgraph ML["Detection Engine"]
+        direction TB
         FEAT["features.py<br/>rolling mean / std / rate of change"]
-        DET["detector.py<br/>LocalOutlierFactor + deviation backstop"]
+        DET["detector.py<br/>LocalOutlierFactor + backstop"]
+        FEAT --> DET
     end
 
-    GEN --> HIST["historical.py<br/>cached scoring, auto-refreshes if stale"]
+    API["FastAPI backend<br/>(app/api.py)"]
+
+    subgraph UI["React + TypeScript frontend"]
+        direction TB
+        MON["Live Monitor"]
+        SIM["Degradation Simulator"]
+        CHAT["Copilot Chat"]
+    end
+
+    subgraph AI["AI layer"]
+        direction TB
+        COPILOT["copilot.py"]
+        LLM["Fast, low-cost LLM"]
+        TOOLS["fleet_tools.py<br/>6 read-only functions"]
+        COPILOT <--> LLM
+        LLM <--> TOOLS
+    end
+
     LIVEFEED --> FEAT
     HIST --> FEAT
-    FEAT --> DET
-
-    DET --> API["FastAPI backend (app/api.py)"]
-
-    API --> UI["React + TypeScript frontend"]
-    UI --> MON["Live Monitor"]
-    UI --> SIM["Degradation Simulator"]
-    UI --> CHAT["Copilot Chat"]
-
-    CHAT --> COPILOT["copilot.py"]
-    COPILOT <--> LLM["Fast, low-cost LLM"]
-    LLM <--> TOOLS["fleet_tools.py<br/>6 read-only functions"]
+    DET --> API
+    API --> MON
+    API --> SIM
+    API --> CHAT
+    CHAT --> COPILOT
     TOOLS --> LIVEFEED
     TOOLS --> HIST
 `;
@@ -56,7 +71,7 @@ async function main() {
   fs.writeFileSync(tmpHtml, html);
 
   const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 1400, height: 1400 } });
+  const page = await browser.newPage({ viewport: { width: 2000, height: 900 } });
   await page.goto('file://' + tmpHtml.replace(/\\/g, '/'));
   await page.waitForSelector('svg', { timeout: 20000 });
   await page.waitForTimeout(500);

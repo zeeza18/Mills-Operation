@@ -89,8 +89,6 @@ def main():
     if OUT_DIR.exists():
         shutil.rmtree(OUT_DIR)
 
-    docs = ROOT / "docs"
-
     artifact_overview = f"""
 # The Artifact
 
@@ -98,7 +96,7 @@ This deliverable walks through what was actually built, end to end, starting fro
 
 ## There was no real data, so a realistic proxy was built first
 
-Nucor data was never going to be available for this, that is stated outright in the assignment. So before writing a line of model code, the question was: what is the minimum realistic signal that actually proves a model can see a bearing failure coming before the alarm does.
+Real Nucor sensor data was not available, so it had to be synthesized from scratch. Before writing a line of model code, the question was: what is the minimum realistic signal that actually proves a model can see a bearing failure coming before the alarm does.
 
 The answer landed on 5 signals per roll stand, sampled every minute: vibration, bearing temperature, motor current, line speed, and coolant pressure. These were not picked because they were easy to fake. Between them they cover three different physical failure signatures (mechanical, thermal, electrical), one signal that reflects an operator's own response to a developing fault (line speed gets throttled back), and one that moves in the opposite direction from all the others (coolant pressure drops as the seal degrades). A model fed only correlated signals learns nothing new from most of them; this set was chosen specifically to avoid that.
 
@@ -149,38 +147,235 @@ The full setup, both Python and frontend, is in the code deliverable's README. T
     convert(None, "Deliverable 1: The Artifact", "What was built, and what it looks like running",
             "01_The_Artifact", extra_md=artifact_overview)
 
-    convert(ROOT / "README.md", "Deliverable 2: The Code",
-            "Repository contents and how to run it", "02_Code_And_How_To_Run")
+    code_overview = f"""
+# The Code
 
-    arch_extra = """
+Everything written for this lives in one repository. This deliverable walks through what is actually in it, folder by folder and the key files inside each, then gives the exact commands to run it. The narrative version of why things are built this way is in the architecture and stack justification deliverables; this is the map of where that thinking actually landed in code.
 
-## What it looks like, running
+## app/, the backend and the model
+
+`app/features.py` and `app/labels.py` turn raw readings into what the model actually trains on: rolling mean, standard deviation, and rate of change per signal, plus time to and since the nearest failure so a row can be labeled clean normal or not. `app/detector.py` holds the trained LocalOutlierFactor model and the independent deviation backstop next to it. `app/evaluate.py` runs the whole training and scoring pipeline end to end and prints the real detection numbers.
+
+`app/api.py` is the FastAPI backend, and everything else in this folder either feeds it or is called by it. `app/live_feed.py` is the background task that ticks once a real minute and keeps the live data moving. `app/historical.py` keeps the rolling 45 day scored window that backs the date range filter, cached to disk since scoring the full set takes too long to do inside a request. `app/simulator.py` and `app/signal_profile.py` back the degradation simulator, the correlated signal curve and the timed ramp toward failure. `app/copilot.py` is the AI layer, both the single stand explanation and the fleet wide chat, and `app/fleet_tools.py` is the six read only functions the fleet chat calls instead of using a vector database. `app/model_store.py` and `app/timeseries_utils.py` are small shared helpers (loading the trained model once, shaping alert bands for the frontend) used by more than one of the files above.
+
+## web/, the React and TypeScript frontend
+
+`web/src/App.tsx` is the shell: the three tab switcher, the header, the polling loops that keep the fleet and the selected stand's chart data current. Everything else in `web/src/components/` is one piece of a screen: `FleetStrip` and `StandCard` render the landing grid, `SignalChart` and `TimeRangeFilter` are the per stand chart and its date range control, `SimulatorPage` and `FleetCopilotPage` are the other two tabs, `CurrentReadingsPanel` and `MiniFleetPanel` are the detail view's sidebar and fleet aware panel, `RollStandIcon` and `SoundToggle` are the animated stand icon and the draggable mute button for alert sound. `web/src/lib/alertSound.ts` handles the siren and spoken alert, `web/src/lib/markdown.tsx` renders the copilot's **bold** markers as real bold instead of showing literal asterisks. `web/src/api.ts` and `web/src/types.ts` are the one place every backend call and its response shape are defined, so the rest of the frontend never talks to `fetch` directly.
+
+## data/, tests/, docs/, notebooks/, scripts/
+
+`data/generate_synthetic_data.py` is the seeded generator that produces the training dataset, described in full in the data strategy deliverable. `tests/dashboard.spec.js` is the Playwright suite covering the core flows, wired into `.github/workflows/ci.yml` so it runs on every push. `docs/` holds this project's actual design history, not retrofitted after the fact, including a plain English writeup of how the AI copilot works (`docs/copilot-how-it-works.md`). `notebooks/model_comparison.ipynb` is the real bake off that picked LocalOutlierFactor over four alternatives. `scripts/` holds the one off utilities used to package these deliverables themselves (screenshot capture, diagram rendering, PDF generation), kept out of the main app since they are packaging tools, not part of the running product.
+
+## How to run it
+
+```bash
+# Python backend
+pip install -r requirements.txt
+
+# 1. Generate the synthetic sensor dataset (deterministic, about 389K rows, a few seconds)
+python data/generate_synthetic_data.py
+
+# 2. Train the anomaly detector and score the held out test window
+python -m app.evaluate
+
+# 3. Start the backend API (also starts the live feed in the background)
+uvicorn app.api:app --reload --port 8000
+```
+
+```bash
+# React frontend, in a second terminal
+cd web
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`. Without an `ANTHROPIC_API_KEY` in `.env`, both AI surfaces still work, they fall back to a deterministic, data grounded response instead of a live model call, so the console never breaks because of a missing key.
+
+## How to test it
+
+```bash
+npm install
+npx playwright install --with-deps chromium
+npx playwright test
+```
+
+Playwright starts both the backend and the frontend itself, so just make sure the two setup commands above have already been run once. This runs automatically on every push through GitHub Actions.
+"""
+    convert(None, "Deliverable 2: The Code",
+            "What's in the repository, and how to run it", "02_Code_And_How_To_Run",
+            extra_md=code_overview)
+
+    architecture_doc = """
+# Architecture & Design
+
+## The problem, sharpened
+
+The prompt as given is broad: help a shift supervisor prevent, anticipate, or react faster to unplanned downtime. That was narrowed hard, on purpose, instead of building a generic downtime dashboard:
+
+- **User:** a shift supervisor on a hot mill line, specifically. Someone watching live operation and deciding, in the moment, whether to intervene, not a reliability engineer doing offline analysis.
+- **Failure mode:** roll stand bearing degradation. One well understood mechanism with a real, defensible precursor signal, not every possible downtime cause.
+- **The decision it speeds up:** should this stand be flagged for inspection before it fails on this shift. A concrete action a supervisor can actually take.
+
+This does not predict all downtime causes, does not do automated shutdown (it flags and explains, a human decides), and does not run at production streaming scale. Those are named limits, not gaps papered over.
+
+## System design
 
 ![Architecture diagram](screenshots/architecture-diagram.png)
 
-![Fleet overview](screenshots/fleet-overview.png)
+Synthetic sensor data (or a real historian feed in production) flows through a feature pipeline (rolling mean, standard deviation, rate of change per signal) into a LocalOutlierFactor detector trained only on normal windows, backed by an independent deviation backstop for the model's own blind spot on sustained failures. The FastAPI backend serves that scored data to a React frontend with three surfaces: a live monitor, a hands on degradation simulator, and an AI copilot. The copilot calls six narrow, read only functions into the same live data instead of a vector database, since the entire fleet's current state easily fits in a single prompt at this scale.
 
-![Stand detail with alert history](screenshots/stand-detail.png)
+## What was considered and rejected
 
-![Degradation simulator mid alert](screenshots/simulator-alert.png)
+**A supervised deep model instead of an unsupervised detector.** Rejected: real predictive maintenance rarely has enough labeled failures to train something that data hungry, and an unsupervised detector only needs normal data, which is plentiful.
 
-![Fleet copilot answering a real question](screenshots/copilot-chat.png)
+**Picking a model by reasoning alone.** This was a real gap in an early pass. Closed by an actual bake off (`notebooks/model_comparison.ipynb`) against IsolationForest, OneClassSVM, and EllipticEnvelope on identical features and metrics. LocalOutlierFactor won outright, zero false alarms versus roughly 0.8% for the runner up, and about ten times the warning time.
+
+**LocalOutlierFactor's local density blind spot.** The same property that catches subtle onset early also means a sustained failure's own recent minutes eventually look normal to each other, and the score quietly drops. Fixed with an independent backstop keyed to a stable, whole training period baseline instead of a moving window, which also surfaced and fixed a real labeling bug in how clean normal data was defined.
+
+**Real time streaming versus batch.** Batch scoring for training and evaluation, but the live console genuinely ticks in real time on top of it (`app/live_feed.py`). Still not production scale streaming, one in process background task, not a message bus.
+
+**Tool use over vector search for the AI copilot.** Embeddings solve a corpus too big to fit in context. Six stands' current data does not need that; six real function calls into live data give a grounded answer with less machinery and no invented numbers.
+
+**Streamlit, then a real frontend.** Streamlit validated the detection approach in an afternoon. Once the numbers were real, the interface was rebuilt properly in React and TypeScript with an actual API boundary, since a shift supervisor's tool needs to feel trustworthy, not like a script re-running top to bottom on every click.
+
+## Where this breaks at Nucor scale
+
+- **One global threshold across all 6 stands**, not per-stand or per-mill calibration. Real stands differ in age, load, and calibration.
+- **One consistent 5 signal schema assumed.** A real multi-division steelmaker almost certainly has different sensor vendors and tag naming per site.
+- **No retraining cadence or drift monitoring.** Normal operation drifts; a model trained once and never revisited quietly gets worse.
+- **Alert fatigue.** Even a low false alarm rate compounds across every stand, every mill, every shift. The single biggest realistic adoption risk, covered in the security and risk deliverable.
+- **Assumes a supervisor checks a dashboard.** A real deployment needs to land inside whatever they already watch, not be one more screen to remember.
+
+Full detail behind every decision above, including the bugs found getting here, is in the AI partnership log and `docs/architecture.md` in the repository.
 """
-    convert(docs / "architecture.md", "Deliverable 3: Architecture & Design",
+    convert(None, "Deliverable 3: Architecture & Design",
             "System design, key decisions, what breaks at Nucor scale", "03_Architecture_And_Design",
-            extra_md=arch_extra)
+            extra_md=architecture_doc)
 
-    convert(docs / "stack-justification.md", "Deliverable 4: Stack Justification",
-            "Why these tools, and why not C3.ai or Palantir Foundry", "04_Stack_Justification")
+    stack_doc = """
+# Stack Justification
 
-    convert(docs / "ai-partnership-log.md", "Deliverable 5: AI Partnership Log",
-            "A candid record of how AI was used building this", "05_AI_Partnership_Log")
+## What was used, and why
 
-    convert(docs / "data-strategy.md", "Deliverable 6: Data Strategy",
-            "What data this needs, how it was simulated, what real data would take", "06_Data_Strategy")
+**Python, pandas, scikit-learn** for the data generator and detector. The hard part of this assignment is proving detection works on a realistic failure signature, not building ML infrastructure. LocalOutlierFactor was picked after an actual bake off against IsolationForest, OneClassSVM, and EllipticEnvelope (`notebooks/model_comparison.ipynb`), not by reasoning alone.
 
-    convert(docs / "security-risk.md", "Deliverable 7: Security & Risk Assessment",
-            "What can go wrong, and what was deliberately left unsolved", "07_Security_And_Risk_Assessment")
+**Streamlit first, then React and TypeScript with a FastAPI backend.** Streamlit validated the detection approach in an afternoon. Once it was proven (11 out of 11 detected, a real evaluated threshold tradeoff), the interface was rebuilt properly, since a shift supervisor's actual tool needs to feel trustworthy, not like a script re-running top to bottom on every click.
+
+**A fast, low-cost LLM for the explanation and fleet copilot layers.** Constrained explicitly to the numbers it is handed, never inventing a reading or a timeframe, with a deterministic fallback if the call fails so the console never breaks because of a missing key or a network blip.
+
+**Playwright and GitHub Actions** instead of Tosca, K6, or Azure DevOps. No access to Nucor's actual tooling, so the closest accessible equivalents, built to mirror the same shape a real pipeline would have: generate data, train, evaluate, test, gate on all of it.
+
+## Why not C3.ai or Palantir Foundry
+
+For a production version, standardizing on whichever platform Nucor already runs is probably the right call. For this prototype, it would have been the wrong one.
+
+Both platforms front load real modeling investment, C3.ai's Type and Blueprint system, Foundry's ontology layer, that pays off when integrating dozens of data sources across an enterprise under one governed model. For a one week exercise where the actual question is whether one specific anomaly detection approach works on one specific failure mode, that ceremony would have eaten most of the week before a single line of detection logic got written.
+
+C3 AI Reliability specifically already sells this exact problem category, packaged. Building on top of it would mean testing C3.ai's model and C3.ai's assumptions about failure signatures, not the ones actually reasoned through here, which defeats the point of an assignment scoring judgment about the problem, not the ability to configure a vendor product.
+
+There was no access to either platform, which made this partly moot, but the same call would stand with access: prove the idea cheap and fast first, then re-platform onto the governed enterprise system once it is worth the integration investment, not before the underlying approach is even known to work.
+
+If this proved out, the real version becomes a registered model inside whichever platform Nucor standardizes on: data ingestion through that platform's own historian integration, the model sitting in its governance layer (access control, audit, retraining triggers), and the supervisor surface embedded in existing control room tooling rather than a standalone web app.
+"""
+    convert(None, "Deliverable 4: Stack Justification",
+            "Why these tools, and why not C3.ai or Palantir Foundry", "04_Stack_Justification",
+            extra_md=stack_doc)
+
+    partnership_doc = """
+# AI Partnership Log
+
+## Which tools, for what
+
+Claude Code (Sonnet 5) was the primary collaborator for the whole build: architecture, the data generator, feature engineering, the anomaly detector, the FastAPI backend, the React frontend, the AI copilot layer, the Playwright suite, CI, and first drafts of every doc. I directed it, reviewed everything it produced, and pushed back when something didn't sit right. Separately, Claude Haiku 4.5 runs inside the product itself as the fleet copilot. That's a different relationship, it's a component I built and had to treat like any other dependency, not trust because it shares a name with my coding assistant.
+
+## Overrides, where I didn't just take what it gave me
+
+**Accepting the first "it works" without asking what it cost.** First pass at the alert threshold used the 99.5th percentile of normal scores, conservative sounding, and it caught zero of eleven real failures. Instead of taking the next fix at face value, I had it sweep the full threshold range and show me the actual detection rate versus false alarm rate at every point. Landed on 97th percentile, full detection, because I saw the tradeoff, not because it was the first setting with a good headline number.
+
+**Documentation voice.** Claude's default for technical docs is polished, third person, corporate. I asked for first person, what I actually tried, what didn't work. This assignment scores the log on candor, and generic voice would have flattened real back and forth into something nobody actually wrote. I also had to push a second time on em dashes and hyphen as punctuation showing up constantly, a small tic that reads as machine written the moment you notice it.
+
+**Leaving Streamlit for a real frontend.** The dashboard worked but looked like a prototype. I told it to drop Streamlit entirely and rebuild in React and TypeScript with a proper backend, not restyle the existing script, which meant redoing the frontend, the test suite, and CI from a working baseline. Worth it: a shift supervisor's tool needs to look trustworthy, not like a demo.
+
+**Not trusting a flaky looking test as probably fine.** One Playwright test failed intermittently after the React rebuild. I'd already made a legitimate unrelated fix nearby and nearly called it solved. Instead I wrote a standalone script that clicked the same element in a real browser and printed the actual state, no test framework involved, which proved the click itself worked. Only then did I treat the remaining flakiness as real environmental noise and fix the actual cause: timeouts and retries in the test config, not a suppressed assertion.
+
+**Publishing the confidential prompt.** I told it to sync all the setup to the public repo, meaning everything, including the take home prompt itself. It flagged, unprompted, that the assignment says not to post that document publicly, and asked before pushing anything. I hadn't thought about the prompt file sitting next to the code. This is the one override that came from the AI catching me, not the other way around.
+
+## Confidently wrong, and how it got caught
+
+**The rolling mean baseline bug.** For a stand genuinely mid failure, the copilot said coolant pressure was up. Backwards, the failure signature is pressure dropping. It wasn't hallucinating a number, it correctly reported the z score it was handed, but that z score was computed against a 60 minute rolling mean that was itself mid collapse during the fault, so a noisy uptick inside an ongoing drop can register as above normal. I caught it by reading the output for internal consistency, "up" didn't match the failure signature I knew, and fixed it by comparing against a stable, whole period baseline instead.
+
+**A sub agent reported success on work it never did.** I delegated a mechanical cleanup, rewriting dash punctuation across 18 files, to a background sub agent so it wouldn't eat the main session's context. It came back marked completed with a written summary claiming the work was done. When I actually checked by re searching the codebase, every instance was still there. It had gotten confused partway through and reported the confusion as a finished task. I only caught it because I check the files, not the status message, and did the rewrite myself afterward.
+
+## What I won't let it decide alone
+
+Whether an anomaly triggers a real world action, the dashboard explains and suggests, it never shuts anything down or dispatches anyone. Where the actual alert threshold sits, it can compute the tradeoff curve but not how much false alarm fatigue a real shift crew would tolerate before they start ignoring the tool. Whether something is safe to publish, the confidentiality catch above is the clearest example, I take the flag seriously but the push decision is mine. Whether a task actually got done, a status of completed is a claim, not a fact, I check the artifact.
+
+## Where it was 10x, where it slowed me down
+
+**10x** on sheer volume: a synthetic data generator with a realistic failure ramp, a feature pipeline, a trained and evaluated detector, a backend, a frontend, an LLM explanation layer, a test suite, a CI workflow, and this set of docs, in far less time than doing the typing myself across that many different kinds of work.
+
+**Slower** in two places. The editor's type checker kept flagging pandas and scikit-learn calls as errors that weren't real, stale stub noise that needed a second look every time to confirm it was nothing. And the sub agent failure above cost real time, a delegated task that silently didn't happen is worse than one that visibly fails, because it looks finished until you check.
+
+Full detail on every override, bug, and addendum along the way is in `docs/ai-partnership-log.md` in the repository.
+"""
+    convert(None, "Deliverable 5: AI Partnership Log",
+            "A candid record of how AI was used building this", "05_AI_Partnership_Log",
+            extra_md=partnership_doc)
+
+    data_doc = """
+# Data Strategy
+
+## What was needed, and why
+
+Real Nucor sensor data was not available, so it had to be synthesized from scratch. Before writing any generation code, the question was: what is the minimum realistic signal that actually proves a model can see a bearing failure coming before the alarm does, not a generic sensor dataset.
+
+Five signals per roll stand, sampled every minute: vibration (mechanical wear, the standard precursor), bearing temperature (thermal, slower and noisier than vibration), motor current (electrical, ties the fault to something a plant's PLC would already log), line speed (operational response, tests whether the model reads a human throttling back rather than just raw physics), and coolant pressure, the one signal that drops while everything else rises, which forces the model to learn an actual pattern instead of thresholding one direction.
+
+## How it was built
+
+The first attempt was a flat baseline with a sudden step change right before failure. It looked fake immediately, flat then a cliff, and no real machine dies like a light switch. Rebuilt as a non linear ramp: starting 6 to 48 hours before failure, each signal drifts toward a failing value on a progress squared curve, slow at first and accelerating near the end, with the noise widening as the fault develops rather than just the mean shifting.
+
+The generator (`data/generate_synthetic_data.py`) is seeded and fully reproducible. Only the script is checked in, not the output. Result: 6 stands times 45 days at 1 minute resolution, about 389K rows, roughly 22% of stand days ending in an injected failure, paired with a ground truth label file. The window anchors to end yesterday off the real clock instead of a fixed date, so the data stays current without ever needing a retrain, same seed and same signal sequences, only the calendar labels move.
+
+This is a best guess at realistic magnitudes and failure dynamics, not something measured off real equipment, and it is worth saying that plainly rather than implying the numbers are more grounded than they are.
+
+## What I'd ask Nucor's data team for
+
+- **Historian access** (OSIsoft PI or equivalent) for the real tag names and sampling rates behind these five signals on an actual roll stand. Plant historians often log slower or event triggered, which changes the modeling approach.
+- **A real failure log from a CMMS**, actual unplanned downtime with timestamps and root cause, so the model trains against ground truth instead of simulated labels.
+- **Reliability engineering sign off on the signal list itself**, whether these five are the real leading indicators for this failure mode at this mill, or whether a sixth, like oil analysis or acoustic emission, matters more in practice.
+- **Data quality expectations**: sensor dropout rates, calibration drift, and how stale a reading is allowed to get before it is untrustworthy. Detection is only as good as the data underneath it.
+"""
+    convert(None, "Deliverable 6: Data Strategy",
+            "What data this needs, how it was simulated, what real data would take", "06_Data_Strategy",
+            extra_md=data_doc)
+
+    security_doc = """
+# Security & Risk Assessment
+
+This is not an attempt to solve every risk below in a five day prototype. Spotting them unprompted matters more here than closing every gap, and what follows is what was actually thought about while building this, including a couple only caught by going looking, not because they were obvious.
+
+**Prompt injection.** The single stand copilot's prompt is built entirely from computed numbers, no free text field, so that part was mostly luck of the use case. The fleet wide ask the fleet text box is different, a supervisor can type anything into it, so it needed real design: the system prompt scopes the model to only these six stands and declines anything else (tested directly by asking it to write a poem), every tool it can call is read only, tool output is explicitly treated as data to report and never as instructions to obey, and the tool use loop is capped at 4 rounds so a confused model can't spin forever burning calls on one question.
+
+**Hallucination in decision support.** This is the risk designed around most deliberately, because it is the one most likely to matter in practice. The prompt tells the model not to invent readings or history, but even with that constraint its interpretation of a correctly reported number was wrong once, a rolling mean bug made it say coolant pressure was up when it was actually crashing (full story in the AI partnership log). The real fix was not trusting the model more, it is that raw numbers are always shown next to the explanation on the dashboard, never replaced by it, so a supervisor never depends on the sentence being right.
+
+**Data leakage.** Every copilot call sends sensor readings and anomaly scores to a third party API. That is data leaving the network by design and worth naming plainly rather than treating an external call as free. The data here is synthetic so there is nothing to actually leak, but in production that telemetry is operationally sensitive and would need a real data processing agreement, not an assumption that it is fine because it is just numbers. The API key itself lives in a gitignored local file, fine for a prototype, not a substitute for real secrets management in production.
+
+**Access control.** Not implemented. No login, no separation between someone who can view an alert and someone with authority to act on it. That is a real gap, not an oversight being glossed over, and it needs solving before this touches anything with real operational consequence.
+
+**Audit trail.** No persistent log right now of who saw which alert, when, or what they did about it. If a bearing fails after the tool flagged it, that question needs to be answerable from a log, not memory. Straightforward to add since every alert and every copilot call already has the data, it just is not written anywhere durable yet.
+
+**Model deprecation and drift.** Two separate risks. The detector itself will drift as normal operation changes over time, and there is no retraining cadence or drift monitoring here. Separately, the copilot depends on a specific hosted model that could be deprecated or change behavior, the fallback path keeps the dashboard from hard breaking, but explanation quality would silently degrade and nothing currently alerts anyone that it happened.
+
+**Alert fatigue, the one that worries me most and is not on the standard checklist.** Not a security risk in the traditional sense, but the one most likely to actually cause harm. Even a false alarm rate under 1% adds up into real noise across every stand and every shift, and a tool that gets ignored is worse than no tool at all because it creates false confidence that someone is watching. No complete solution here, per stand calibration and suppression logic would both help and neither is built, but it felt more worth naming plainly than most of the items above.
+
+**What was deliberately not built.** The system explains and suggests, it never triggers a shutdown or pages anyone automatically. Keeping a human in the loop for every consequential action is the single biggest risk mitigation in this whole design, a decision made on purpose, not a limitation from running out of time.
+
+Full detail on each of these is in `docs/security-risk.md` in the repository.
+"""
+    convert(None, "Deliverable 7: Security & Risk Assessment",
+            "What can go wrong, and what was deliberately left unsolved", "07_Security_And_Risk_Assessment",
+            extra_md=security_doc)
 
     print(f"Wrote HTML to {OUT_DIR}")
 
