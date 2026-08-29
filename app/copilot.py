@@ -94,6 +94,28 @@ def _clean_style(text: str) -> str:
     return _DASH_AS_PUNCTUATION.sub(", ", text)
 
 
+def _fallback_fleet_snapshot() -> str:
+    """No API key: same "never break, show something real instead"
+    philosophy as _fallback_explanation above, just for the fleet-wide
+    chat. A generic "can't help without a key" message used to be here,
+    which meant this path genuinely showed no data at all, no stand name,
+    no number, nothing. Dumps the actual current reading for every stand
+    instead, straight from the same tool the live model would have called."""
+    from app.fleet_tools import get_all_current_readings
+
+    lines = ["_[offline fallback: no API key configured]_",
+             "Here's the current fleet snapshot instead of a live answer:"]
+    for reading in get_all_current_readings():
+        if "error" in reading:
+            continue
+        status = "ALERTING" if reading["isAlerting"] else "normal"
+        lines.append(
+            f"- **{reading['standId']}**: {status}, anomaly score {reading['anomalyScore']:.2f}, "
+            f"bearing temp {reading['bearing_temp_c']:.1f} C, vibration {reading['vibration_rms_mm_s']:.2f} mm/s"
+        )
+    return "\n".join(lines)
+
+
 def _fallback_explanation(ctx: AnomalyContext, reason: str = "no API key configured") -> str:
     top = ctx.signal_deviations[:2]
     lines = [f"_[offline fallback: {reason}]_",
@@ -202,7 +224,7 @@ def answer_fleet_question(history: list[dict]) -> str:
     """
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
-        return "_[offline fallback: no API key configured]_\nAsk-the-fleet needs a live model call to route your question to the right data; the fleet cards on the dashboard still show the raw current numbers."
+        return _fallback_fleet_snapshot()
 
     try:
         import json
