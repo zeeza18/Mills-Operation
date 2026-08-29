@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
-import { CopilotPanel } from "./components/CopilotPanel";
+import { CurrentReadingsPanel } from "./components/CurrentReadingsPanel";
+import { FleetCopilotPage } from "./components/FleetCopilotPage";
+import type { DisplayMessage } from "./components/FleetCopilotPage";
 import { FleetStrip } from "./components/FleetStrip";
 import { SignalChart } from "./components/SignalChart";
 import { MiniFleetPanel } from "./components/MiniFleetPanel";
@@ -18,7 +20,7 @@ const FLEET_POLL_MS = 20_000;
 const TIMESERIES_POLL_MS = 20_000;
 
 type View = "fleet" | "detail";
-type Tab = "live" | "simulator";
+type Tab = "live" | "simulator" | "copilot";
 
 // All the timestamps this app generates (the live feed, the historical
 // scoring pass) are timezone-naive local wall-clock time, not UTC. Date's
@@ -73,6 +75,9 @@ export default function App() {
   // plays immediately, no separate "enable" step needed.
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [fleetPanelOpen, setFleetPanelOpen] = useState(true);
+  // Lives here, not inside FleetCopilotPage, so switching to another tab and
+  // back doesn't wipe the conversation (that component unmounts on tab switch).
+  const [copilotMessages, setCopilotMessages] = useState<DisplayMessage[]>([]);
   const [tab, setTab] = useState<Tab>("live");
   const [rangePreset, setRangePreset] = useState<RangePreset>("today");
   const [minDate, setMinDate] = useState(todayStr); // refined once /data-bounds resolves
@@ -176,6 +181,7 @@ export default function App() {
   }
 
   const onFleetLanding = tab === "live" && view === "fleet";
+  const selectedEntry = fleet?.find((f) => f.standId === selected) ?? null;
 
   if (loadError) {
     return (
@@ -259,6 +265,9 @@ export default function App() {
             <TabButton active={tab === "simulator"} onClick={() => setTab("simulator")}>
               Degradation simulator
             </TabButton>
+            <TabButton active={tab === "copilot"} onClick={() => setTab("copilot")}>
+              Copilot
+            </TabButton>
           </div>
         )}
       </header>
@@ -271,6 +280,12 @@ export default function App() {
       >
         {tab === "simulator" ? (
           <SimulatorPage soundEnabled={soundEnabled} />
+        ) : tab === "copilot" ? (
+          <FleetCopilotPage
+            selectedStandId={view === "detail" ? selected : null}
+            messages={copilotMessages}
+            setMessages={setCopilotMessages}
+          />
         ) : view === "fleet" ? (
           <div key="fleet" className="page-transition">
             <section className="mb-6">
@@ -339,7 +354,7 @@ export default function App() {
                 {summary ? (
                   <>
                     <StandDetailPanel summary={summary} />
-                    <CopilotPanel standId={selected!} live />
+                    {selectedEntry && <CurrentReadingsPanel entry={selectedEntry} />}
                   </>
                 ) : (
                   <SidebarSkeleton />

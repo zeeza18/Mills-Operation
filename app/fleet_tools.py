@@ -86,6 +86,37 @@ def get_alert_frequency(stand_id: str, days: int = DEFAULT_HISTORY_DAYS) -> dict
     }
 
 
+def get_recent_trend(stand_id: str, minutes: int = 30) -> dict:
+    """Whether the anomaly score has actually been rising, falling, or
+    holding flat over a recent window. A single current score is a
+    snapshot, not a trajectory: two stands sitting at the exact same score
+    right now can be headed in opposite directions, and only this can
+    tell them apart."""
+    scored = live_feed.get_scored()
+    rows = scored[scored.stand_id == stand_id].sort_values("timestamp")
+    if rows.empty:
+        return {"error": f"no data for {stand_id}"}
+
+    cutoff = rows.timestamp.max() - pd.Timedelta(minutes=minutes)
+    window = rows[rows.timestamp >= cutoff]
+    if len(window) < 4:
+        return {"standId": stand_id, "note": "not enough recent data to assess a trend"}
+
+    half = len(window) // 2
+    first_half_avg = float(window.anomaly_score.iloc[:half].mean())
+    second_half_avg = float(window.anomaly_score.iloc[half:].mean())
+    change = second_half_avg - first_half_avg
+    direction = "rising" if change > 0.05 else "falling" if change < -0.05 else "flat"
+
+    return {
+        "standId": stand_id,
+        "windowMinutes": minutes,
+        "trend": direction,
+        "anomalyScoreChangeOverWindow": round(change, 4),
+        "currentAnomalyScore": round(float(window.anomaly_score.iloc[-1]), 4),
+    }
+
+
 def get_alert_cause(stand_id: str) -> dict:
     row = _latest_row(stand_id)
     if row is None:
@@ -147,6 +178,23 @@ TOOLS = [
         },
     },
     {
+        "name": "get_recent_trend",
+        "description": "Whether a stand's anomaly score has been rising, falling, or flat over a recent "
+                        "window. Call this before answering any question about which stand is likely to "
+                        "alert soon, is getting worse, or is trending toward trouble. A stand's current "
+                        "score alone does not say which direction it is headed; a score close to the "
+                        "threshold but flat or falling is not the same risk as a lower score that is "
+                        "climbing fast.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "stand_id": {"type": "string"},
+                "minutes": {"type": "integer", "description": "lookback window in minutes, default 30"},
+            },
+            "required": ["stand_id"],
+        },
+    },
+    {
         "name": "get_alert_cause",
         "description": "Which single sensor is most responsible for a stand's current anomaly score "
                         "(the largest deviation from that stand's own normal baseline).",
@@ -163,5 +211,6 @@ DISPATCH = {
     "get_all_current_readings": lambda args: get_all_current_readings(),
     "get_last_alert": lambda args: get_last_alert(args["stand_id"]),
     "get_alert_frequency": lambda args: get_alert_frequency(args["stand_id"], args.get("days", DEFAULT_HISTORY_DAYS)),
+    "get_recent_trend": lambda args: get_recent_trend(args["stand_id"], args.get("minutes", 30)),
     "get_alert_cause": lambda args: get_alert_cause(args["stand_id"]),
 }

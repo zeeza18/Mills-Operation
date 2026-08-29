@@ -1,4 +1,6 @@
 import type {
+  AskResponse,
+  ChatMessage,
   DegradeTickResult,
   ExplainResponse,
   FleetEntry,
@@ -60,8 +62,7 @@ export const api = {
     if (!res.ok) throw new Error(`explain -> ${res.status}`);
     return res.json();
   },
-  askFleet: (question: string) =>
-    post<{ answer: string; source: "live" | "fallback" }>("/api/live/ask", { question }),
+  askFleet: (messages: ChatMessage[]) => post<AskResponse>("/api/live/ask", { messages }),
 
   simulatorState: () => get<SimulatorState>("/api/simulator/state"),
   simulatorReset: () => post<SimulatorState>("/api/simulator/reset"),

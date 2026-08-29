@@ -52,6 +52,16 @@ export interface ExplainResponse {
   source: "live" | "fallback";
 }
 
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface AskResponse {
+  answer: string;
+  source: "live" | "fallback";
+}
+
 export type SignalKey =
   | "vibration_rms_mm_s"
   | "bearing_temp_c"

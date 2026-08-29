@@ -264,8 +264,13 @@ def get_live_summary(stand_id: str):
     }
 
 
+class ChatMessage(BaseModel):
+    role: str  # "user" | "assistant"
+    content: str
+
+
 class AskRequest(BaseModel):
-    question: str
+    messages: list[ChatMessage]
 
 
 class AskResponse(BaseModel):
@@ -275,7 +280,8 @@ class AskResponse(BaseModel):
 
 @app.post("/api/live/ask", response_model=AskResponse)
 def ask_fleet(req: AskRequest):
-    text = answer_fleet_question(req.question)
+    history = [{"role": m.role, "content": m.content} for m in req.messages]
+    text = answer_fleet_question(history)
     source = "fallback" if text.startswith("_[offline fallback") or text.startswith("_[gave up") else "live"
     return AskResponse(answer=text, source=source)
 

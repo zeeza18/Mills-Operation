@@ -57,10 +57,11 @@ test.describe('Mills-Operation reliability console', () => {
     }
   });
 
-  test('copilot button produces a real explanation for the selected stand', async ({ page }) => {
+  test('copilot tab produces a real explanation for the selected stand', async ({ page }) => {
     await page.goto('/');
 
     await page.getByTestId('fleet-card-STAND-01').click();
+    await page.getByRole('button', { name: 'Copilot' }).click();
 
     const button = page.getByTestId('explain-button');
     await expect(button).toBeVisible();
@@ -69,5 +70,21 @@ test.describe('Mills-Operation reliability console', () => {
     await expect(page.getByTestId('explain-response')).toBeVisible({ timeout: 20_000 });
     const text = await page.getByTestId('explain-response').innerText();
     expect(text.length).toBeGreaterThan(20);
+  });
+
+  test('fleet copilot chat answers a free-text question and keeps history visible', async ({ page }) => {
+    await page.goto('/');
+
+    await page.getByTestId('fleet-card-STAND-01').click();
+    await page.getByRole('button', { name: 'Copilot' }).click();
+
+    await page.getByPlaceholder('Ask about the fleet...').fill('Which stand has the highest bearing temperature?');
+    await page.getByRole('button', { name: 'Send' }).click();
+
+    const chat = page.getByTestId('copilot-chat');
+    await expect(chat).toContainText('STAND-', { timeout: 20_000 });
+    // both the question and the answer should still be visible, this is a
+    // chat log, not a single-exchange panel that replaces itself
+    await expect(chat).toContainText('Which stand has the highest bearing temperature?');
   });
 });
