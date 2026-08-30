@@ -246,6 +246,10 @@ Synthetic sensor data (or a real historian feed in production) flows through a f
 - **Alert fatigue.** Even a low false alarm rate compounds across every stand, every mill, every shift. The single biggest realistic adoption risk, covered in the security and risk deliverable.
 - **Assumes a supervisor checks a dashboard.** A real deployment needs to land inside whatever they already watch, not be one more screen to remember.
 
+## How this actually gets adopted
+
+A model being accurate on paper does not mean a supervisor trusts it on day one. Turning alerts on for the whole floor immediately is the wrong first move: the first false alarm in week one costs more trust than ten correct alerts earn back, and a tool the crew has learned to ignore is worse than no tool at all. The real rollout is to run it silently for a few weeks against a crew that already trusts the process, let them check a handful of real flags against what they already know, and only then let it start paging people. That is a change management problem, not a modeling problem, and no amount of extra model accuracy fixes it on its own.
+
 Full detail behind every decision above, including the bugs found getting here, is in the AI partnership log and `docs/architecture.md` in the repository.
 """
     convert(None, "Deliverable 3: Architecture & Design",
