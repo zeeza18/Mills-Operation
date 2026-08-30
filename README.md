@@ -153,6 +153,8 @@ npx playwright test
 
 Playwright builds and starts both the backend and the frontend itself (see `playwright.config.js`), so just make sure the two setup steps above have been run first. Runs automatically on every push and PR via `.github/workflows/ci.yml`.
 
+48 tests across fleet navigation, the live monitor, the degradation simulator, the sound toggle, the copilot, and 18 direct backend API checks (`tests/*.spec.js`). Every run also writes `tests/test-report.pdf`, a full pass/fail breakdown of every test case, automatically, no separate command needed.
+
 ## Project structure
 
 ```

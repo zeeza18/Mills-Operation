@@ -12,8 +12,16 @@ test.describe('Degradation simulator', () => {
     await page.getByTestId('fleet-card-STAND-01').click();
     await page.getByRole('button', { name: 'Degradation simulator' }).click();
     // start from a known, freshly reset state so tests do not depend on
-    // whatever an earlier test left the shared simulator buffer in
-    await page.getByRole('button', { name: 'Reset' }).click();
+    // whatever an earlier test left the shared simulator buffer in. Reset's
+    // own click handler awaits a real API round trip before it repopulates
+    // the (controlled) signal inputs; without waiting for that response,
+    // the next test's very first fill can land before it resolves, and gets
+    // silently overwritten the moment React re-renders with the reset
+    // values, which is exactly what made this look like a slow network flake.
+    await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/simulator/reset') && r.ok()),
+      page.getByRole('button', { name: 'Reset' }).click(),
+    ]);
   });
 
   test('starts on the editable Signal values panel, not a live readout', async ({ page }) => {
@@ -28,10 +36,14 @@ test.describe('Degradation simulator', () => {
     await vibrationInput.blur();
 
     const tempInput = page.locator('label', { hasText: 'Bearing Temp' }).locator('input');
+    // commitDraft awaits a real network round trip (api.simulatorCorrelate)
+    // before the field updates; 5s was tight enough to flake under a slower
+    // production preview build (the same build CI runs against), other
+    // network backed waits in this suite already use 15s, so match that
     await expect(async () => {
       const value = Number(await tempInput.inputValue());
       expect(value).toBeGreaterThan(80); // baseline is ~58, failure target is 92
-    }).toPass({ timeout: 5_000 });
+    }).toPass({ timeout: 15_000 });
   });
 
   test('the duration caption shows how many real seconds a run will take', async ({ page }) => {

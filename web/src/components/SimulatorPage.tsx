@@ -26,6 +26,12 @@ export function SimulatorPage({ soundEnabled }: Props) {
   const [latest, setLatest] = useState<DegradeTickResult | null>(null);
   const [firstAlertTick, setFirstAlertTick] = useState<number | null>(null);
   const tickInFlight = useRef(false);
+  // A tick already sent to the backend keeps running there even after Reset
+  // is clicked; its response can land after reset's own state clears local
+  // state, and would otherwise silently repopulate "latest" with stale data,
+  // making the panel jump back to Live readings right after Reset supposedly
+  // cleared it. Reset flips this so any such orphaned response is ignored.
+  const cancelledRef = useRef(false);
   // Same throttle as the fleet siren in App.tsx: this stand's own isAlerting
   // can flap true/false/true as the score crosses the threshold during a
   // ramp, and each flip used to re-run the alert effect and fire the siren
@@ -65,6 +71,7 @@ export function SimulatorPage({ soundEnabled }: Props) {
   }
 
   async function reset() {
+    cancelledRef.current = true;
     setRunning(false);
     setHistory([]);
     setLatest(null);
@@ -75,6 +82,7 @@ export function SimulatorPage({ soundEnabled }: Props) {
 
   async function startDegrade() {
     if (!values) return;
+    cancelledRef.current = false;
     setHistory([]);
     setLatest(null);
     setFirstAlertTick(null);
@@ -89,6 +97,7 @@ export function SimulatorPage({ soundEnabled }: Props) {
       tickInFlight.current = true;
       try {
         const result = await api.simulatorDegradeTick();
+        if (cancelledRef.current) return;
         setLatest(result);
         setHistory((h) => [...h, result]);
         setValues({

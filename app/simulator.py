@@ -14,6 +14,7 @@ the exact same feature pipeline and trained detector as everywhere else,
 so "does this alert" is a genuine model call, not a canned animation.
 """
 
+import threading
 from dataclasses import dataclass
 
 import numpy as np
@@ -30,6 +31,16 @@ MAX_BUFFER_MINUTES = 500
 
 _rng = np.random.default_rng()
 _buffer: pd.DataFrame = pd.DataFrame(columns=["timestamp", "stand_id", *SIGNAL_COLUMNS])
+# FastAPI runs each sync endpoint in a worker thread, and _buffer/_run below
+# are plain module globals, so two requests landing close together (a stale
+# tick from a closed browser tab racing a fresh reset, say) can genuinely
+# interleave. That surfaced as a real crash under test: one thread's "run
+# just finished, clear it" set _run to None while another thread was still
+# mid-tick, and the second thread's next line then hit
+# AttributeError: 'NoneType' object has no attribute 'tick'. Reentrant since
+# start_degrade and current_values can each call reset() while already
+# holding the lock themselves.
+_lock = threading.RLock()
 
 
 @dataclass
@@ -56,8 +67,9 @@ def _seed() -> pd.DataFrame:
 
 def reset() -> None:
     global _buffer, _run
-    _buffer = _seed()
-    _run = None
+    with _lock:
+        _buffer = _seed()
+        _run = None
 
 
 def correlate(signal: str, value: float) -> dict[str, float]:
@@ -72,17 +84,19 @@ def correlate(signal: str, value: float) -> dict[str, float]:
 
 
 def current_values() -> dict[str, float]:
-    if _buffer.empty:
-        reset()
-    latest = _buffer.iloc[-1]
-    return {col: round(float(latest[col]), 3) for col in SIGNAL_COLUMNS}
+    with _lock:
+        if _buffer.empty:
+            reset()
+        latest = _buffer.iloc[-1]
+        return {col: round(float(latest[col]), 3) for col in SIGNAL_COLUMNS}
 
 
 def start_degrade(start_values: dict[str, float], duration_minutes: int) -> None:
     global _run
-    if _buffer.empty:
-        reset()
-    _run = DegradeRun(start_values=dict(start_values), duration_minutes=max(1, duration_minutes))
+    with _lock:
+        if _buffer.empty:
+            reset()
+        _run = DegradeRun(start_values=dict(start_values), duration_minutes=max(1, duration_minutes))
 
 
 def _score_latest() -> dict:
@@ -104,34 +118,35 @@ def tick_degrade() -> dict:
     """Advances the active run by one simulated minute and scores it. Raises
     if no run is active (the frontend should not be polling this then)."""
     global _buffer, _run
-    if _run is None:
-        raise RuntimeError("No degradation run in progress")
+    with _lock:
+        if _run is None:
+            raise RuntimeError("No degradation run in progress")
 
-    _run.tick += 1
-    progress = ramp_curve(min(1.0, _run.tick / _run.duration_minutes))
+        _run.tick += 1
+        progress = ramp_curve(min(1.0, _run.tick / _run.duration_minutes))
 
-    values = {}
-    for col in SIGNAL_COLUMNS:
-        start = _run.start_values[col]
-        values[col] = start + (FAILURE_TARGETS[col] - start) * progress
-        values[col] += float(_rng.normal(0, BASELINE[col][1] * progress * 1.5))
+        values = {}
+        for col in SIGNAL_COLUMNS:
+            start = _run.start_values[col]
+            values[col] = start + (FAILURE_TARGETS[col] - start) * progress
+            values[col] += float(_rng.normal(0, BASELINE[col][1] * progress * 1.5))
 
-    new_ts = _buffer["timestamp"].max() + pd.Timedelta(minutes=1)
-    new_row = pd.DataFrame([{"timestamp": new_ts, "stand_id": SIM_STAND_ID, **values}])
-    _buffer = pd.concat([_buffer, new_row], ignore_index=True)
-    cutoff = new_ts - pd.Timedelta(minutes=MAX_BUFFER_MINUTES)
-    _buffer = _buffer[_buffer.timestamp >= cutoff].reset_index(drop=True)
+        new_ts = _buffer["timestamp"].max() + pd.Timedelta(minutes=1)
+        new_row = pd.DataFrame([{"timestamp": new_ts, "stand_id": SIM_STAND_ID, **values}])
+        _buffer = pd.concat([_buffer, new_row], ignore_index=True)
+        cutoff = new_ts - pd.Timedelta(minutes=MAX_BUFFER_MINUTES)
+        _buffer = _buffer[_buffer.timestamp >= cutoff].reset_index(drop=True)
 
-    result = _score_latest()
-    done = _run.tick >= _run.duration_minutes
-    result.update({
-        "timestamp": str(new_ts),
-        "tick": _run.tick,
-        "durationMinutes": _run.duration_minutes,
-        "progress": round(progress, 4),
-        "done": done,
-        **{col: round(v, 3) for col, v in values.items()},
-    })
-    if done:
-        _run = None
-    return result
+        result = _score_latest()
+        done = _run.tick >= _run.duration_minutes
+        result.update({
+            "timestamp": str(new_ts),
+            "tick": _run.tick,
+            "durationMinutes": _run.duration_minutes,
+            "progress": round(progress, 4),
+            "done": done,
+            **{col: round(v, 3) for col, v in values.items()},
+        })
+        if done:
+            _run = None
+        return result
