@@ -82,9 +82,17 @@ test.describe('Backend API, live data', () => {
   });
 
   test('GET /api/live/stands/{id}/timeseries with a range reaching into history pulls both sets', async ({ request }) => {
+    // app/historical.py's get_scored() scores the full 45 day, 388K row
+    // dataset through LocalOutlierFactor on its first call ever (its own
+    // docstring says "well over a minute") and caches the result to disk
+    // after that. CI always starts from a cold cache, data/synthetic/ is
+    // gitignored, so this specific request is genuinely slow exactly once,
+    // not a bug: confirmed locally at 81s cold versus milliseconds warm.
+    test.setTimeout(180_000);
     const bounds = await (await request.get(`${API}/api/live/data-bounds`)).json();
     const res = await request.get(
       `${API}/api/live/stands/STAND-01/timeseries?start=${bounds.minDate}T00:00:00`,
+      { timeout: 150_000 },
     );
     expect(res.ok()).toBeTruthy();
     const body = await res.json();
