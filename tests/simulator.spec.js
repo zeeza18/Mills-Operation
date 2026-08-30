@@ -61,16 +61,20 @@ test.describe('Degradation simulator', () => {
   });
 
   test('a full run reaches the failure targets and trips an alert', async ({ page }) => {
+    // each tick is a real backend model scoring call, not just a 400ms
+    // client timer, so a slower CI runner can genuinely take much longer
+    // than the nominal 6s (15 ticks) this takes on a fast local machine
+    test.setTimeout(60_000);
     await page.getByRole('button', { name: 'Start degradation' }).click();
 
-    await expect(page.getByText('Alert', { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Alert', { exact: true })).toBeVisible({ timeout: 25_000 });
     await expect(page.getByText(/Alert triggered at minute \d+ of 15/)).toBeVisible();
 
     // the alert can trip well before the run finishes; the signal keeps
     // ramping for the rest of the 15 minutes, so wait for the whole run to
     // actually complete (the button reverts once running flips back to
     // false) before reading the final value, not just the first crossing
-    await expect(page.getByRole('button', { name: 'Start degradation' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('button', { name: 'Start degradation' })).toBeVisible({ timeout: 25_000 });
 
     // the run always converges on the vibration failure target (9.5), plus
     // some random noise on the final tick, so check a wide band around it
@@ -83,8 +87,9 @@ test.describe('Degradation simulator', () => {
   });
 
   test('reset returns to the editable panel and clears the run history', async ({ page }) => {
+    test.setTimeout(60_000);
     await page.getByRole('button', { name: 'Start degradation' }).click();
-    await expect(page.getByText('Alert', { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Alert', { exact: true })).toBeVisible({ timeout: 25_000 });
 
     await page.getByRole('button', { name: 'Reset' }).click();
 
