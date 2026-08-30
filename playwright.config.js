@@ -11,7 +11,7 @@ module.exports = defineConfig({
   // genuine environmental flakiness without masking an actual regression,
   // since a real bug fails consistently, not once out of several runs.
   retries: 2,
-  reporter: [['list'], ['html', { open: 'never' }]],
+  reporter: [['list'], ['html', { open: 'never' }], ['./tests/pdf-reporter.js']],
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'retain-on-failure',
